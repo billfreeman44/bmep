@@ -5155,24 +5155,24 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
     if gzending eq 0 then begin
       if ivarending eq 0 then begin
         epsfile=maskname+'_'+filtername+'_'+slitname+'_eps.fits'
-        ivarfile=maskname+'_'+filtername+'_'+slitname+'_std.fits'
+        stdfile=maskname+'_'+filtername+'_'+slitname+'_std.fits'
         endif else begin
           epsfile=maskname+'_'+filtername+'_'+slitname+'_eps.fits'
-          ivarfile=maskname+'_'+filtername+'_'+slitname+'_ivar.fits'
+          stdfile=maskname+'_'+filtername+'_'+slitname+'_ivar.fits'
           endelse
     endif else begin
       if ivarending eq 0 then begin
         epsfile=maskname+'_'+filtername+'_'+slitname+'_eps.fits.gz'
-        ivarfile=maskname+'_'+filtername+'_'+slitname+'_std.fits.gz'
+        stdfile=maskname+'_'+filtername+'_'+slitname+'_std.fits.gz'
         endif else begin
           epsfile=maskname+'_'+filtername+'_'+slitname+'_eps.fits.gz'
-          ivarfile=maskname+'_'+filtername+'_'+slitname+'_ivar.fits.gz'
+          stdfile=maskname+'_'+filtername+'_'+slitname+'_ivar.fits.gz'
           endelse
     endelse
     if ~file_test(epsfile) then print,'file '+epsfile+' does not exist'
-    if ~file_test(ivarfile) then print,'file'+ivarfile+' does not exist'
+    if ~file_test(stdfile) then print,'file'+stdfile+' does not exist'
     
-    if file_test(epsfile) and file_test(ivarfile) and slitname ne '' then begin
+    if file_test(epsfile) and file_test(stdfile) and slitname ne '' then begin
     
       ;read in files
       sciimg=readfits(epsfile,shdr, /SILENT)
@@ -5181,13 +5181,16 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
       ny=n_elements(sciimg[0,*])
       nx=n_elements(sciimg[*,0])
       ;    help,sciimg
-      std_img=readfits(ivarfile,ihdr, /SILENT)
+      std_img=readfits(stdfile,ihdr, /SILENT)
       std_img=double(abs(std_img))
       
       ;calculate variance image
       var_img=replicate(0.0,nx,ny)
       index=where(std_img ne 0.0,ct)
-      if ct ne 0 then var_img[index]=std_img[index]*std_img[index]
+      if ivarending eq 1 then $      
+        var_img[index]=1.0/std_img[index] $ ; fix if actually was an ivar img and not an std img
+          else var_img[index]=std_img[index]*std_img[index]
+      
       ind=where(finite(var_img) eq 0,ct)
       if ct ne 0 then var_img[ind]=0.0
       
@@ -5202,23 +5205,23 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
       ;calculate wavel. CTYPE1, CRVAL1, and CDELT1
       refpix = sxpar(shdr,'CRPIX1')
       lam0   = sxpar(shdr,'CRVAL1')
-      print,'starting wavelength ', lam0
+;      print,'starting wavelength ', lam0
       delta  = sxpar(shdr,'CDELT1')
       if delta lt 1.1 then delta  = sxpar(shdr,'CD1_1')
       wavel=lam0 + (findgen(n_elements(sciimg[*,0]))+refpix-1.0) * delta
       
-      print,'CRPIX1: ',refpix
-      print,'CRVAL1: ',lam0
-      print,'CDELT1: ',sxpar(shdr,'CDELT1')
-      print,'CD1_1:  ' ,sxpar(shdr,'CD1_1')
-      PRINT,'DELTA:  ',delta
+;      print,'CRPIX1: ',refpix
+;      print,'CRVAL1: ',lam0
+;      print,'CDELT1: ',sxpar(shdr,'CDELT1')
+;      print,'CD1_1:  ' ,sxpar(shdr,'CD1_1')
+;      PRINT,'DELTA:  ',delta
       
       
       
 
       
       ;snr image
-      snrimg=sciimg*sqrt(ivarimg)
+      snrimg=sciimg/sqrt(var_img)
       snr2sigCut=snrimg
       index=where(snr2sigCut lt 0.5,ct)
       if ct gt 0 then snr2sigCut[index]=0.5
