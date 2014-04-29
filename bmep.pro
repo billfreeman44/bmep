@@ -1,4 +1,5 @@
 ;version 1.00
+;;git commit -a -m ''
 ;extract data multiple times using different widths to find the best SNR
 pro bmep_auto_width_calculator,j,centerarr,state,order,bkgndl,bkgndr,$
     printp,fitgaussp,plotp,slidep,pwindowsize,singlep,cosmic_sigma,n_iterate_cosmic,bkgnd_naverage,max_rays_per_col,$
@@ -5058,7 +5059,8 @@ end
 ; a .fits.gz file its saving as a .fits without the .gz...  if your files have a
 ; .gz at the end then set this keyword.
 ; 
-; added an ivar ending, because the DRP seemed to stop using the IVAR and is now using 
+; added a 'ivarending' keyword because the DRP seemed to stop 
+; using the IVAR and is now using std or something
 ;
 ;test
 ;
@@ -5075,6 +5077,7 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
   if ~keyword_set(path_to_output) then path_to_output='~/mosfire/output/'
   x=getenv('BMEP_MOSFIRE_DRP_2D')
   if x ne '' then path_to_output=x
+  print,'the output 2D path is',path_to_output
   
   cd,path_to_output,current=original_dir
   
@@ -5150,11 +5153,21 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
     
     ;check if the files exist
     if gzending eq 0 then begin
-      epsfile=maskname+'_'+filtername+'_'+slitname+'_eps.fits'
-      ivarfile=maskname+'_'+filtername+'_'+slitname+'_ivar.fits'
+      if ivarending eq 0 then begin
+        epsfile=maskname+'_'+filtername+'_'+slitname+'_eps.fits'
+        ivarfile=maskname+'_'+filtername+'_'+slitname+'_std.fits'
+        endif else begin
+          epsfile=maskname+'_'+filtername+'_'+slitname+'_eps.fits'
+          ivarfile=maskname+'_'+filtername+'_'+slitname+'_ivar.fits'
+          endelse
     endif else begin
-      epsfile=maskname+'_'+filtername+'_'+slitname+'_eps.fits.gz'
-      ivarfile=maskname+'_'+filtername+'_'+slitname+'_ivar.fits.gz'
+      if ivarending eq 0 then begin
+        epsfile=maskname+'_'+filtername+'_'+slitname+'_eps.fits.gz'
+        ivarfile=maskname+'_'+filtername+'_'+slitname+'_std.fits.gz'
+        endif else begin
+          epsfile=maskname+'_'+filtername+'_'+slitname+'_eps.fits.gz'
+          ivarfile=maskname+'_'+filtername+'_'+slitname+'_ivar.fits.gz'
+          endelse
     endelse
     if ~file_test(epsfile) then print,'file '+epsfile+' does not exist'
     if ~file_test(ivarfile) then print,'file'+ivarfile+' does not exist'
@@ -5168,19 +5181,20 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
       ny=n_elements(sciimg[0,*])
       nx=n_elements(sciimg[*,0])
       ;    help,sciimg
-      ivarimg=readfits(ivarfile,ihdr, /SILENT)
-      ivarimg=double(abs(ivarimg))
+      std_img=readfits(ivarfile,ihdr, /SILENT)
+      std_img=double(abs(std_img))
       
       ;calculate variance image
       var_img=replicate(0.0,nx,ny)
-      index=where(ivarimg ne 0.0,ct)
-      if ct ne 0 then var_img[index]=1.0/ivarimg[index]
+      index=where(std_img ne 0.0,ct)
+      if ct ne 0 then var_img[index]=std_img[index]*std_img[index]
       ind=where(finite(var_img) eq 0,ct)
       if ct ne 0 then var_img[ind]=0.0
       
+      
       ;FOR LONGSLIT CORRECTION TO MAKE THEM NOT HUGE IMAGES
 ;      sciimg=sciimg[*,977:1095]
-;      ivarimg=ivarimg[*,977:1095]
+;      std_img=std_img[*,977:1095]
 ;      var_img=var_img[*,977:1095]
 ;      ny=n_elements(sciimg[0,*])
 ;      nx=n_elements(sciimg[*,0])
