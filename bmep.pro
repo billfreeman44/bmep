@@ -1,4 +1,4 @@
-;version 1.0000
+;version 1.00
 ;extract data multiple times using different widths to find the best SNR
 pro bmep_auto_width_calculator,j,centerarr,state,order,bkgndl,bkgndr,$
     printp,fitgaussp,plotp,slidep,pwindowsize,singlep,cosmic_sigma,n_iterate_cosmic,bkgnd_naverage,max_rays_per_col,$
@@ -820,7 +820,7 @@ end
 ;and for lris
 ;  cutout_slitname.fits
 ;and program will extract only the slitname
-function bmep_get_slitname,filename,maskname,ivar=ivar,eps=eps,lris=lris,idlreduc=idlreduc,nogz=nogz
+function bmep_get_slitname,filename,maskname,ivar=ivar,eps=eps,lris=lris,idlreduc=idlreduc,gzending=gzending
   postlength=0
   if keyword_set(lris) then begin
     start=strlen('cutout_')
@@ -829,12 +829,12 @@ function bmep_get_slitname,filename,maskname,ivar=ivar,eps=eps,lris=lris,idlredu
   endif ;lris data...
   if keyword_set(ivar) then begin
     postlength=strlen(filename)-strlen('_ivar.fits.gz') - (strlen(maskname)+3)
-    if keyword_set(nogz) then postlength=strlen(filename)-strlen('_ivar.fits') - (strlen(maskname)+3)
+    if ~keyword_set(gzending) then postlength=strlen(filename)-strlen('_ivar.fits') - (strlen(maskname)+3)
     return,strcompress((strmid(filename,strlen(maskname)+3,postlength)),/remove_all)
   endif
   if keyword_set(eps) then begin
     postlength=strlen(filename)-strlen('_eps.fits.gz') - (strlen(maskname)+3)
-    if keyword_set(nogz) then postlength=strlen(filename)-strlen('_eps.fits') - (strlen(maskname)+3)
+    if ~keyword_set(gzending) then postlength=strlen(filename)-strlen('_eps.fits') - (strlen(maskname)+3)
     return,strcompress((strmid(filename,strlen(maskname)+3,postlength)),/remove_all)
   endif
   if keyword_set(idlreduc) then begin
@@ -5054,10 +5054,13 @@ end
 ;
 ;
 ;UPDATES:
-; added a "nogz" keyword because apparently the DRP is not saving as
-; a .fits.gz file its saving as a .fits without the .gz...
+; added a "gzending" keyword because apparently the DRP is not saving as
+; a .fits.gz file its saving as a .fits without the .gz...  if your files have a
+; .gz at the end then set this keyword.
+; 
+; added an ivar ending, because the DRP seemed to stop using the IVAR and is now using 
 ;
-;
+;test
 ;
 pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=gzending,ivarending=ivarending
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
@@ -5122,7 +5125,8 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
   
   ;get the names of the slits
   slitnames=[]
-  for i=0,n_elements(filenames)-1 do slitnames=[slitnames,bmep_get_slitname(filenames[i],maskname,/eps,nogz=nogz)]
+  for i=0,n_elements(filenames)-1 do $
+    slitnames=[slitnames,bmep_get_slitname(filenames[i],maskname,/eps,gzending=gzending)]
   print,slitnames
 
   
@@ -5145,7 +5149,7 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
     slitname=slitnames[choicearr[i]]
     
     ;check if the files exist
-    if nogz eq 1 then begin
+    if gzending eq 0 then begin
       epsfile=maskname+'_'+filtername+'_'+slitname+'_eps.fits'
       ivarfile=maskname+'_'+filtername+'_'+slitname+'_ivar.fits'
     endif else begin
