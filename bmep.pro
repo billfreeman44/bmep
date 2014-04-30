@@ -100,76 +100,77 @@ pro bmep_calc_cosmic_rays,i,bkgndl,bkgndr,bottomint,topint,state,totalpixflagged
   ;all pixels start as good
   badPixelMask=replicate(1.0,n_elements(state.data[0,*]))
   n_flagged=0
-  
-  ;calculate range that you care about.
-  if n_elements(bkgndl) ge 1 then begin
-    bottom_cosmic_range=fix(min(bkgndl))
-    top_cosmic_range=fix(max(bkgndr))
-  endif else begin
-    bottom_cosmic_range=bottomint
-    top_cosmic_range=topint
-  endelse
-  
-  ;check that range is OK
-  if bottom_cosmic_range lt 0 then bottom_cosmic_range=0
-  if top_cosmic_range gt n_elements(state.data[0,*])-1 then top_cosmic_range=n_elements(state.data[0,*])-1
-  if bottom_cosmic_range gt n_elements(state.data[0,*])-1 then bottom_cosmic_range=0
-  if top_cosmic_range lt 0  then top_cosmic_range=n_elements(state.data[0,*])-1
-  
-  ;make names easier...
-  bot=bottom_cosmic_range
-  top=top_cosmic_range
-  
-  ;remove zeroes without messing with the removed count
-  index=where(variance[i,bot:top] eq 0,ct)
-  index=index+bot
-  if ct gt 0 then badPixelMask[index]=0.0
-  
-  ;data - sky - f*p
-  residual_arr=(state.data[i,bot:top] - $
-    poly(findgen(top-bot+1)+bot,sky_reslut_arr[i,*]) - $
-    f[i]*p[bot:top])
-  index=where(residual_arr*residual_arr GT $
-    cosmic_sigma*cosmic_sigma*variance[i,bot:top],ct)
-  index=index+bot
-  
-  ;actually do the masking if not too many flagged.
-  if ct gt 0 and ct lt max_rays_per_col then badPixelMask[index]=0.0 ; mark bad pixels as 0
-  nflagged=ct
-  
-  ;if cosmic rays, iterate things...
-  if ct ne 0 and ct ne n_elements(badPixelMask) and ct lt max_rays_per_col then begin
-    totalpixflagged=totalpixflagged+ct
-    for cosmic_counter=0, n_iterate_cosmic-1 do begin
+  if cosmic_sigma gt 0 then begin
+    ;calculate range that you care about.
+    if n_elements(bkgndl) ge 1 then begin
+      bottom_cosmic_range=fix(min(bkgndl))
+      top_cosmic_range=fix(max(bkgndr))
+    endif else begin
+      bottom_cosmic_range=bottomint
+      top_cosmic_range=topint
+    endelse
     
-      ;recalculate sky
-      newresult=bmep_fit_sky(badPixelMask*state.data[i,*],bkgndl,bkgndr,order,bkgnd_naverage)
+    ;check that range is OK
+    if bottom_cosmic_range lt 0 then bottom_cosmic_range=0
+    if top_cosmic_range gt n_elements(state.data[0,*])-1 then top_cosmic_range=n_elements(state.data[0,*])-1
+    if bottom_cosmic_range gt n_elements(state.data[0,*])-1 then bottom_cosmic_range=0
+    if top_cosmic_range lt 0  then top_cosmic_range=n_elements(state.data[0,*])-1
+    
+    ;make names easier...
+    bot=bottom_cosmic_range
+    top=top_cosmic_range
+    
+    ;remove zeroes without messing with the removed count
+    index=where(variance[i,bot:top] eq 0,ct)
+    index=index+bot
+    if ct gt 0 then badPixelMask[index]=0.0
+    
+    ;data - sky - f*p
+    residual_arr=(state.data[i,bot:top] - $
+      poly(findgen(top-bot+1)+bot,sky_reslut_arr[i,*]) - $
+      f[i]*p[bot:top])
+    index=where(residual_arr*residual_arr GT $
+      cosmic_sigma*cosmic_sigma*variance[i,bot:top],ct)
+    index=index+bot
+    
+    ;actually do the masking if not too many flagged.
+    if ct gt 0 and ct lt max_rays_per_col then badPixelMask[index]=0.0 ; mark bad pixels as 0
+    nflagged=ct
+    
+    ;if cosmic rays, iterate things...
+    if ct ne 0 and ct ne n_elements(badPixelMask) and ct lt max_rays_per_col then begin
+      totalpixflagged=totalpixflagged+ct
+      for cosmic_counter=0, n_iterate_cosmic-1 do begin
       
-      ;recalculate boxcar flux
-      f[i]=total(badPixelMask*(state.data[i,bottomint:topint] - poly(xarr_small,newresult)))
-      ferr[i]=sqrt(total(badPixelMask*(variance[i,bottomint:topint])))
-      
-      ;recalculate residual array (note new sky, not old)
-      residual_arr=badPixelMask[bot:top]*(state.data[i,bot:top] - $
-        poly(findgen(top-bot+1)+bot,newresult) - $
-        f[i]*p[bot:top])
+        ;recalculate sky
+        newresult=bmep_fit_sky(badPixelMask*state.data[i,*],bkgndl,bkgndr,order,bkgnd_naverage)
         
-      ;find more bad pixels
-      index=where(residual_arr*residual_arr GT cosmic_sigma*cosmic_sigma*variance[i,bot:top],ct) ;flag bad pixels
-      
-      ;mask pixels
-      if ct gt 0 and ct lt max_rays_per_col - nflagged then begin
-        badPixelMask[index]=0.0
-        totalpixflagged=totalpixflagged+ct
-        nflagged=nflagged+ct
-      endif
-      
-      ;bail out of for loop if no moar cosmic rays.
-      if ct eq 0 or ct ge max_rays_per_col - nflagged then break
-    endfor
-    sky_reslut_arr[i,*]=newresult ; update sky array.
-  endif
-  sky_residuals[i]=total(abs(residual_arr))
+        ;recalculate boxcar flux
+        f[i]=total(badPixelMask*(state.data[i,bottomint:topint] - poly(xarr_small,newresult)))
+        ferr[i]=sqrt(total(badPixelMask*(variance[i,bottomint:topint])))
+        
+        ;recalculate residual array (note new sky, not old)
+        residual_arr=badPixelMask[bot:top]*(state.data[i,bot:top] - $
+          poly(findgen(top-bot+1)+bot,newresult) - $
+          f[i]*p[bot:top])
+          
+        ;find more bad pixels
+        index=where(residual_arr*residual_arr GT cosmic_sigma*cosmic_sigma*variance[i,bot:top],ct) ;flag bad pixels
+        
+        ;mask pixels
+        if ct gt 0 and ct lt max_rays_per_col - nflagged then begin
+          badPixelMask[index]=0.0
+          totalpixflagged=totalpixflagged+ct
+          nflagged=nflagged+ct
+        endif
+        
+        ;bail out of for loop if no moar cosmic rays.
+        if ct eq 0 or ct ge max_rays_per_col - nflagged then break
+      endfor
+      sky_reslut_arr[i,*]=newresult ; update sky array.
+    endif
+    sky_residuals[i]=total(abs(residual_arr))
+  endif;cosmic sigma gt 0
 end
 
 ;attempt to calculate where the bad skylines are based on variance image
@@ -340,8 +341,6 @@ pro bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername
   
   ;check version number
   IF (Float(!Version.Release) lt 8.1) THEN message,'idl ver must be 8.1 or greater'
-  
-  
   
   index=where(var_img eq 0,ct)
   ;print,'there are ',ct,' pixels with 0 variance '
@@ -1273,9 +1272,9 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               ;if object is a star, update the starlist.txt
               index=WHERE(extrainfo1 eq 'ISSTAR',ct)
               IF ct eq 1 and extrainfo2[index[0]] eq 1 and objnum eq -1 and j eq 0 then begin
-                readcol,state.savepath+'starinfo.txt',maskstar,$
+                readcol,state.savepath+'00_starinfo.txt',maskstar,$
                   filtstar,objstar,yexpect_star,yactual_star,widthstar,sigmastar,/silent,format='A,A,A,F,F,F,F'
-                  
+                
                 index=WHERE(extrainfo1 eq 'MSKNM')
                 themask=extrainfo2[index[0]]
                 index=WHERE(extrainfo1 eq 'FILTNM')
@@ -1303,7 +1302,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
                   widthstar=[widthstar,thesigmastar*2.0*SQRT(2.0*ALOG(2.0))]
                   sigmastar=[sigmastar,thesigmastar]
                 endelse ; ct
-                forprint,textout=state.savepath+'starinfo.txt',maskstar+' ',$
+                forprint,textout=state.savepath+'00_starinfo.txt',maskstar+' ',$
                   filtstar+' ',objstar+' ',yexpect_star,yactual_star,widthstar,sigmastar,/nocomment
                   
                   
@@ -2564,7 +2563,7 @@ pro bmep_mosdef_update_yexpect
       ;check if object is a star
       if abs(priorityarr[index]) eq 1 then isstar=1 else begin
         isstar=0
-        readcol,path_to_output+'/1d_extracted/starinfo.txt',maskstar,$
+        readcol,path_to_output+'/1d_extracted/00_starinfo.txt',maskstar,$
           filtstar,objstar,yexpect_star,yactual_star,widthstar,sigmastar,/silent,format='A,A,A,F,F,F,F'
         index=where(maskstar eq maskname and filtstar eq filtername,ct)
         if ct ne 0 then begin
@@ -3054,7 +3053,7 @@ pro bmep_mosdef_rewidth
   cd,path_to_output+'/1d_extracted',current=original_dir
   
   ;read in starlist.txt
-  readcol,path_to_output+'/1d_extracted/starinfo.txt',maskstar,$
+  readcol,path_to_output+'/1d_extracted/00_starinfo.txt',maskstar,$
   filtstar,objstar,yexpect_star,yactual_star,widthstar,sigmastar,/silent,format='A,A,A,F,F,F,F'
 
   ;read in list of 1d spectra
@@ -3766,7 +3765,7 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
       ;check if object is a star
       if abs(priorityarr[index]) eq 1 then isstar=1
       ;        isstar=0
-      readcol,path_to_output+'/1d_extracted/starinfo.txt',maskstar,$
+      readcol,path_to_output+'/1d_extracted/00_starinfo.txt',maskstar,$
         filtstar,objstar,yexpect_star,yactual_star,widthstar,sigmastar,/silent,format='A,A,A,F,F,F,F'
       index=where(maskstar eq maskname and filtstar eq filtername,ct)
       if ct ne 0 then begin
@@ -4060,12 +4059,12 @@ end
 ;throws fatal error if no stars found
 ;Added ISSTAR to fits header, 1 if star, 0 if not, -1 if something,
 ;bad happened
-;starinfo.txt is created in the 2D folder if it does not exist at startup.
-;starinfo.txt -maskname, filtername, objname, yexpect, yactual, width
+;00_starinfo.txt is created in the 2D folder if it does not exist at startup.
+;00_starinfo.txt -maskname, filtername, objname, yexpect, yactual, width
 ;this file is read in for each object
 ;added isstar keyword to fits header. also used to determine if,
-;main program should write to starinfo.txt.
-;main program now writes to starinfo.txt if object is a star
+;main program should write to 00_starinfo.txt.
+;main program now writes to 00_starinfo.txt if object is a star
 ;overwrites old info if star was already in list.
 ;
 ;wrapper averages star offset and width for all things with,
@@ -4231,7 +4230,7 @@ end
 ;
 ;now saves a 6th extension, the error in the yprofile...
 ;
-;added sigmastar to starinfo.txt. changed center value to actually calculated center.
+;added sigmastar to 00_starinfo.txt. changed center value to actually calculated center.
 ;Added support for minw to be a float.  It used to be rounded at a bunch of steps.
 ;
 ;march 2014
@@ -4240,6 +4239,7 @@ end
 ;
 ;renamed var_img to noise_img to  be more clear. The var_img is then calculated from this
 ;
+;renamed starinfo.txt to be 00_starinfo.txt
 ;
 
 
@@ -4261,9 +4261,9 @@ pro bmep_mosdef,path_to_output=path_to_output
   savepath=path_to_output+'/1d_extracted/'
   if ~bmep_DIR_EXIST(savepath) then spawn,'mkdir 1d_extracted'
   
-  ;create a starinfo.txt if not exist
-  if ~file_test(path_to_output+'/1d_extracted/starinfo.txt') then begin
-    forprint,textout=path_to_output+'/1d_extracted/starinfo.txt',['maskname '],$
+  ;create a 00_starinfo.txt if not exist
+  if ~file_test(path_to_output+'/1d_extracted/00_starinfo.txt') then begin
+    forprint,textout=path_to_output+'/1d_extracted/00_starinfo.txt',['maskname '],$
       ['filtername '],['objname '],[99.99],[99.99],[99.99],[99.99],/nocomment
   endif
   
@@ -4480,7 +4480,7 @@ pro bmep_mosdef,path_to_output=path_to_output
         ;check if object is a star
         if abs(priorityarr[index]) eq 1 then isstar=1 else begin
           isstar=0
-          readcol,path_to_output+'/1d_extracted/starinfo.txt',maskstar,$
+          readcol,path_to_output+'/1d_extracted/00_starinfo.txt',maskstar,$
             filtstar,objstar,yexpect_star,yactual_star,widthstar,sigmastar,/silent,format='A,A,A,F,F,F,F'
           index=where(maskstar eq maskname and filtstar eq filtername,ct)
           if ct ne 0 then begin
@@ -5110,6 +5110,12 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
     ;create folder to extract to if it doesn't exist.
     if ~bmep_DIR_EXIST(savepath) then spawn,'mkdir 1d_extracted'
     endelse
+  ;create a 00_starinfo.txt if not exist
+  if ~file_test(path_to_output+'/00_starinfo.txt') then begin
+    forprint,textout=path_to_output+'/00_starinfo.txt',['maskname '],$
+      ['filtername '],['objname '],[99.99],[99.99],[99.99],[99.99],/nocomment
+  endif
+  
   
   ;get filter name
   choice=' '
@@ -5177,19 +5183,22 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
       ;read in files
       sciimg=readfits(epsfile,shdr, /SILENT)
       sciimg=double(sciimg)
-      ;combine images and make snr image
-      ny=n_elements(sciimg[0,*])
-      nx=n_elements(sciimg[*,0])
-      ;    help,sciimg
-      std_img=readfits(stdfile,ihdr, /SILENT)
+      std_img=readfits(stdfile, /SILENT)
       std_img=double(abs(std_img))
       
+      ny=n_elements(sciimg[0,*])
+      nx=n_elements(sciimg[*,0])
+      
+      ;fix the image if its an ivar image
+      if ivarending eq 1 then begin 
+        index=where(std_img ne 0.0,ct)
+        std_img[index]=sqrt(1.0/std_img[index])
+        endif  
+      
       ;calculate variance image
-      var_img=replicate(0.0,nx,ny)
       index=where(std_img ne 0.0,ct)
-      if ivarending eq 1 then $      
-        var_img[index]=1.0/std_img[index] $ ; fix if actually was an ivar img and not an std img
-          else var_img[index]=std_img[index]*std_img[index]
+      var_img=replicate(0.0,nx,ny)
+      var_img[index]=std_img[index]*std_img[index]
       
       ind=where(finite(var_img) eq 0,ct)
       if ct ne 0 then var_img[ind]=0.0
@@ -5221,11 +5230,13 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
 
       
       ;snr image
-      snrimg=sciimg/sqrt(var_img)
+      index=where(std_img ne 0)
+      snrimg=sciimg/std_img[index]
       snr2sigCut=snrimg
-      index=where(snr2sigCut lt 0.5,ct)
+      index=where(snr2sigCut lt 2.0,ct)
       if ct gt 0 then snr2sigCut[index]=0.5
       
+      ;mess with these to change how an image is viewed.
       botpercent=10.0
       toppercent=90.0
       
@@ -5239,7 +5250,7 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
       big_img[*,ny*3:ny*4-1]=bytscl(snr2sigCut,top=255,/NAN,$
         min=0.5,max=1.5)   ;snr img
         
-      ;resize big_img if really big...
+      ;resize big_img if really big in y direction...
       if ny*4 gt 1000 then begin
         big_img=bytscl(sciimg,top=255,/NAN,$
           min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))
