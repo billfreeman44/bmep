@@ -4253,7 +4253,7 @@ pro bmep_mosdef,path_to_output=path_to_output
   astrolib
   
   ;set output to what is in the envoirnment variable
-  path_to_output=getenv('BMEP_MOSDEF_2D')
+  x=getenv('BMEP_MOSDEF_2D')
   if x ne '' then path_to_output=x
   ;default if no env found
   if ~keyword_set(path_to_output) then path_to_output='~/mosfire/output/idl_output/2D/' ; no trailing slash
@@ -4318,25 +4318,18 @@ pro bmep_mosdef,path_to_output=path_to_output
   filters=filters[index]
   objects=objects[index]
   
+   
+  ; user  choose filter.
+  ;scratch that, don't choose the filter.
+  filters_no_duplicates=filters[rem_dup(filters)]
+  filtername=filters_no_duplicates[0]
   
-;  ; user  choose filter.
-;  filters_no_duplicates=filters[rem_dup(filters)]
-;  if n_elements(filters_no_duplicates) ne 1 then begin
-;    ;  forprint,indgen(n_elements(filters_no_duplicates)),' '+filters_no_duplicates
-;    ;  print,'which number'
-;    ;  read,choice
-;    choice=0
-;    if choice lt 0 then goto,theend
-;    if choice ge n_elements(filenames) then goto,theend
-;  endif else choice=0
-;  filtername=filters_no_duplicates[choice]
-;  
-;  ;remove everything except that filter from "database"
-;  index=where(filters eq filtername,ct)
-;  if ct eq 0 then message,'error' ; check for strange errors
-;  masks=masks[index]
-;  filters=filters[index]
-;  objects=objects[index]
+  ;remove everything except that filter from "database"
+  index=where(filters eq filtername,ct)
+  if ct eq 0 then message,'error' ; check for strange errors
+  masks=masks[index]
+  filters=filters[index]
+  objects=objects[index]
   
   
   ;user choose object.
@@ -5145,16 +5138,17 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
   
   ;get which slit to do.
   forprint,indgen(n_elements(slitnames_nodup)),replicate('. ',n_elements(slitnames_nodup)),slitnames_nodup
-  print,n_elements(filenames),' all files'
+  print,n_elements(slitnames_nodup),' all files'
   print,'which slit?'
   print,'The blank slit is the full 2d image... dont choose this one'
   print
   choice=0
   read,choice
   if choice lt 0 then goto,theend
-  if choice ge n_elements(filenames)+1 then goto,theend
+  if choice ge n_elements(slitnames_nodup)+1 then goto,theend
   
-  if choice eq n_elements(filenames) then choicearr=indgen(n_elements(filenames)) else choicearr=where(slitnames eq slitnames_nodup[choice])
+  if choice eq n_elements(slitnames_nodup) then choicearr=indgen(n_elements(filenames)) $
+    else choicearr=where(slitnames eq slitnames_nodup[choice])
   
   for i=0,n_elements(choicearr)-1 do begin
     slitname=slitnames[choicearr[i]]
@@ -5162,16 +5156,20 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
     ;check if the files exist
     if gzending eq 0 then $
       if ivarending eq 0 then $
-        stdfile=strmid(epsfile,strlen(epsfile)-strlen('_eps.fits'))+'_std.fits' $
+        stdfile=strmid(epsfile,0,strlen(epsfile)-strlen('_eps.fits'))+'_std.fits' $
         else $
-          stdfile=strmid(epsfile,strlen(epsfile)-strlen('_eps.fits'))+'_ivar.fits' $
+          stdfile=strmid(epsfile,0,strlen(epsfile)-strlen('_eps.fits'))+'_ivar.fits' $
       else $
-      stdfile=strmid(epsfile,strlen(epsfile)-strlen('_eps.fits.gz'))+'_ivar.fits.gz'
+      stdfile=strmid(epsfile,0,strlen(epsfile)-strlen('_eps.fits.gz'))+'_ivar.fits.gz'
     ;check if these files actually exist
     if ~file_test(epsfile) then print,'WARNING!!!! file '+epsfile+' does not exist'
-    if ~file_test(stdfile) then print,'WARNING!!!! file'+stdfile+' does not exist'
+    if ~file_test(stdfile) then print,'WARNING!!!! file '+stdfile+' does not exist'
+    print,stdfile
+    print,epsfile
     
     if file_test(epsfile) and file_test(stdfile) and slitname ne '' then begin
+      filtername=strmid(epsfile,strlen(maskname)+1,1)
+      
       ;read in files
       sciimg=readfits(epsfile,shdr, /SILENT)
       sciimg=double(sciimg)
@@ -5220,7 +5218,8 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
       
       ;snr image
       index=where(std_img ne 0)
-      snrimg=sciimg/std_img[index]
+      snrimg=sciimg
+      snrimg[index]=sciimg[index]/std_img[index]
       snr2sigCut=snrimg
       index=where(snr2sigCut lt 2.0,/null)
       snr2sigCut[index]=0.0
@@ -5232,9 +5231,9 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
       big_img=findgen(nx,(ny*4))
       big_img[*,ny*0:ny*1-1]=bytscl(sciimg,top=255,/NAN,$
         min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))   ;science img
-      big_img[*,ny*1:ny*2-1]=bytscl(ivarimg,top=255,/NAN,$
-        min=bmep_percent_cut(ivarimg,botpercent),max=bmep_percent_cut(ivarimg,toppercent))  ;ivar img
-      big_img[*,ny*2:ny*3-1]=bytscl(sciimg,top=255,/NAN,$
+      big_img[*,ny*1:ny*2-1]=bytscl(var_img,top=255,/NAN,$
+        min=bmep_percent_cut(var_img,botpercent),max=bmep_percent_cut(var_img,toppercent))  ;ivar img
+      big_img[*,ny*2:ny*3-1]=bytscl(snrimg,top=255,/NAN,$
         min=bmep_percent_cut(abs(sciimg),5.0),max=bmep_percent_cut(abs(sciimg),95.0))   ;snr img
       big_img[*,ny*3:ny*4-1]=bytscl(snr2sigCut,top=255,/NAN,$
         min=2.0,max=3.0)   ;snr img
@@ -5292,7 +5291,7 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
         ssi(yexpect),$
         maskname,$
         filtername,$
-        ssi(slitname) $
+        sss(slitname) $
         ]
         
       ;comments
