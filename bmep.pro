@@ -4237,9 +4237,11 @@ end
 ;
 ;Revamped y range to be more reasonable if zoomed in. (threshold is 300 pixels)
 ;
-;renamed var_img to noise_img to  be more clear. The var_img is then calculated from this
+;renamed var_img to std_img to  be more clear. The var_img is then calculated from this
 ;
 ;renamed starinfo.txt to be 00_starinfo.txt
+;
+;may 2014
 ;
 
 
@@ -4249,21 +4251,34 @@ pro bmep_mosdef,path_to_output=path_to_output
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   !except=2 ;see division by zero errors instantly.
   astrolib
-  if ~keyword_set(path_to_output) then path_to_output='~/mosfire/output/idl_output/2D' ; no trailing slash
-  cd,path_to_output,current=original_dir
   
+  ;set output to what is in the envoirnment variable
+  path_to_output=getenv('BMEP_MOSDEF_2D')
+  if x ne '' then path_to_output=x
+  ;default if no env found
+  if ~keyword_set(path_to_output) then path_to_output='~/mosfire/output/idl_output/2D/' ; no trailing slash
+  
+  ;ensure that there is a '/' at the end of the path.
+  if strmid(path_to_output,strlen(path_to_output)-1) ne '/' then path_to_output=path_to_output+'/'
+  cd,path_to_output,current=original_dir
   
   ;clear away all windows!!
   close,/all
   ireset,/no_prompt
   
-  ;create output directory if it no exists.
-  savepath=path_to_output+'/1d_extracted/'
-  if ~bmep_DIR_EXIST(savepath) then spawn,'mkdir 1d_extracted'
+  ;get where to save output of extraction program
+  x=getenv('BMEP_MOSDEF_1D')
+  if x ne '' then savepath=x else begin
+    savepath=path_to_output+maskname+'/1d_extracted/'
+    ;create folder to extract to if it doesn't exist.
+    if ~bmep_DIR_EXIST(savepath) then spawn,'mkdir 1d_extracted'
+    endelse
+  ;ensure that there is a '/' at the end of the path.
+  if strmid(savepath,strlen(savepath)-1) ne '/' then savepath=savepath+'/'
   
   ;create a 00_starinfo.txt if not exist
-  if ~file_test(path_to_output+'/1d_extracted/00_starinfo.txt') then begin
-    forprint,textout=path_to_output+'/1d_extracted/00_starinfo.txt',['maskname '],$
+  if ~file_test(savepath+'00_starinfo.txt') then begin
+    forprint,textout=savepath+'00_starinfo.txt',['maskname '],$
       ['filtername '],['objname '],[99.99],[99.99],[99.99],[99.99],/nocomment
   endif
   
@@ -4286,9 +4301,7 @@ pro bmep_mosdef,path_to_output=path_to_output
     endif ;else message,'ERROR something without a proper name is in the folder.'
   end
   
-  
-  
-  ;allow user to choose mask
+  ; user  choose mask
   masks_no_duplicates=masks[rem_dup(masks)]
   forprint,indgen(n_elements(masks_no_duplicates)),' '+masks_no_duplicates
   print,'which number'
@@ -4306,31 +4319,27 @@ pro bmep_mosdef,path_to_output=path_to_output
   objects=objects[index]
   
   
+;  ; user  choose filter.
+;  filters_no_duplicates=filters[rem_dup(filters)]
+;  if n_elements(filters_no_duplicates) ne 1 then begin
+;    ;  forprint,indgen(n_elements(filters_no_duplicates)),' '+filters_no_duplicates
+;    ;  print,'which number'
+;    ;  read,choice
+;    choice=0
+;    if choice lt 0 then goto,theend
+;    if choice ge n_elements(filenames) then goto,theend
+;  endif else choice=0
+;  filtername=filters_no_duplicates[choice]
+;  
+;  ;remove everything except that filter from "database"
+;  index=where(filters eq filtername,ct)
+;  if ct eq 0 then message,'error' ; check for strange errors
+;  masks=masks[index]
+;  filters=filters[index]
+;  objects=objects[index]
   
   
-  ;allow user to choose filter.
-  filters_no_duplicates=filters[rem_dup(filters)]
-  if n_elements(filters_no_duplicates) ne 1 then begin
-    ;  forprint,indgen(n_elements(filters_no_duplicates)),' '+filters_no_duplicates
-    ;  print,'which number'
-    ;  read,choice
-    choice=0
-    if choice lt 0 then goto,theend
-    if choice ge n_elements(filenames) then goto,theend
-  endif else choice=0
-  filtername=filters_no_duplicates[choice]
-  
-  ;remove everything except that filter from "database"
-  index=where(filters eq filtername,ct)
-  if ct eq 0 then message,'error' ; check for strange errors
-  masks=masks[index]
-  filters=filters[index]
-  objects=objects[index]
-  
-  
-  
-  
-  ;allow user to choose object.
+  ;user choose object.
   forprint,indgen(n_elements(objects)),' '+objects
   print,n_elements(objects),' all files'
   print,n_elements(objects)+1,' all stars'
@@ -4354,21 +4363,18 @@ pro bmep_mosdef,path_to_output=path_to_output
   
   ;FIND ALL THE STARS!!!
   if choice eq n_elements(objects)+1 then begin
-    slitlistfile=path_to_output+'/00mask_info/'+maskname+'_SlitList.txt'
+    slitlistfile=path_to_output+'00mask_info/'+maskname+'_SlitList.txt'
     if ~file_test(slitlistfile) then message,'SLITLIST FILE MISSING... '+SLITLISTFILE
-    
-    readcol,slitlistfile,slitnamearr,priorityarr,offsetarr,format='X,X,X,X,X,X,X,X,X,I,F,F,X,X,X,X,X,X',/silent
+    readcol,slitlistfile,slitnamearr,priorityarr,offsetarr,format='X,X,X,X,X,X,X,X,X,A,F,F,X,X,X,X,X,X',/silent
     star_index=where(abs(priorityarr) eq 1.0,ct)
     if ct eq 0 then message,'no stars???? check '+slitlistfile+' for an object of priority 1 or -1'
     print,slitnamearr[star_index],' are stars'
     choicearr=[]
     for k=0,n_elements(star_index) - 1 do begin
-      index=where(objects eq slitnamearr[star_index[k]])
+      index=where(sss(objects) eq sss(slitnamearr[star_index[k]]))
       choicearr=[choicearr,index[0]]
     endfor
   endif ; chose to do all stars.
-  
-  
   
   for i=0,n_elements(choicearr)-1 do begin
     for j=0,n_elements(filters_no_duplicates)-1 do begin
@@ -4447,7 +4453,7 @@ pro bmep_mosdef,path_to_output=path_to_output
 ;              [ 0,-1,-1,-1, 0]]
       kernel=kernel-avg(kernel)
       
-      print,kernel
+;      print,kernel
       conv_img=convol((sciimg),kernel,/edge_zero,/normalize)
       for ii=0,n_elements(conv_img[*,0])-1 do conv_img[ii,*]=conv_img[ii,*]-aVG(conv_img[ii,*])
 
@@ -4455,7 +4461,7 @@ pro bmep_mosdef,path_to_output=path_to_output
       big_img[*,ny*0:ny*1-1]=bytscl(sciimg,top=255,/NAN,$
         min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))   ;science img
       big_img[*,ny*1:ny*2-1]=bytscl(conv_img,top=255,/NAN,$
-        min=bmep_percent_cut(conv_img,botpercent),max=bmep_percent_cut(conv_img,toppercent))  ;var img 0,15
+        min=bmep_percent_cut(conv_img,00),max=bmep_percent_cut(conv_img,100))  ;var img 0,15
       big_img[*,ny*2:ny*3-1]=bytscl(snrimg,top=255,/NAN,$;min=98.5,max=99.0)
         min=bmep_percent_cut(snrimg,botpercent),max=bmep_percent_cut(snrimg,90.0))   ;snr img
       big_img[*,ny*3:ny*4-1]=bytscl(snr2sigCut,top=255,/NAN,$
@@ -4463,12 +4469,12 @@ pro bmep_mosdef,path_to_output=path_to_output
         
         
       ;calculate where object SHOULD be!
-      slitlistfile=path_to_output+'/00mask_info/'+maskname+'_SlitList.txt'
+      slitlistfile=path_to_output+'00mask_info/'+maskname+'_SlitList.txt'
       if ~file_test(slitlistfile) then message,'SLITLIST FILE MISSING... '+SLITLISTFILE
       
       ;1 2 17  45.61 -5  10  9.37  0.70  7.01  23763 800.00  -0.38 2 17  45.59 -5  10  9.65
-      readcol,slitlistfile,slitnamearr,priorityarr,offsetarr,format='X,X,X,X,X,X,X,X,X,I,F,F,X,X,X,X,X,X',/silent
-      index=where(slitnamearr eq slitname,ct)
+      readcol,slitlistfile,slitnamearr,priorityarr,offsetarr,format='X,X,X,X,X,X,X,X,X,A,F,F,X,X,X,X,X,X',/silent
+      index=where(sss(slitnamearr) eq sss(slitname),ct)
       yexpect=-1
       isstar=-1
       minwidth=-1
@@ -4480,7 +4486,7 @@ pro bmep_mosdef,path_to_output=path_to_output
         ;check if object is a star
         if abs(priorityarr[index]) eq 1 then isstar=1 else begin
           isstar=0
-          readcol,path_to_output+'/1d_extracted/00_starinfo.txt',maskstar,$
+          readcol,savepath+'00_starinfo.txt',maskstar,$
             filtstar,objstar,yexpect_star,yactual_star,widthstar,sigmastar,/silent,format='A,A,A,F,F,F,F'
           index=where(maskstar eq maskname and filtstar eq filtername,ct)
           if ct ne 0 then begin
@@ -5074,9 +5080,15 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
   if ~keyword_set(gzending) then gzending=0
   if ~keyword_set(ivarending) then ivarending=0
   if ~keyword_set(path_to_dropbox) then path_to_dropbox='~/Dropbox/'
-  if ~keyword_set(path_to_output) then path_to_output='~/mosfire/output/'
+  
+  ;set output to what is in the envoirnment variable
   x=getenv('BMEP_MOSFIRE_DRP_2D')
   if x ne '' then path_to_output=x
+  ;default if no env found
+  if ~keyword_set(path_to_output) then path_to_output='~/mosfire/output/'
+  
+  ;ensure that there is a '/' at the end of the path.
+  if strmid(path_to_output,strlen(path_to_output)-1) ne '/' then path_to_output=path_to_output+'/'
   print,'the output 2D path is',path_to_output
   
   cd,path_to_output,current=original_dir
@@ -5098,11 +5110,10 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
   if choice ge n_elements(filenames) then goto,theend
   
   
-  ;foldername is same as the mask name
+  ;assume foldername is same as the mask name
   maskname=filenames[choice]
   print,'mask: ',maskname
   cd,maskname
-  
   
   x=getenv('BMEP_MOSFIRE_DRP_1D')
   if x ne '' then savepath=x else begin
@@ -5110,37 +5121,30 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
     ;create folder to extract to if it doesn't exist.
     if ~bmep_DIR_EXIST(savepath) then spawn,'mkdir 1d_extracted'
     endelse
+    
   ;create a 00_starinfo.txt if not exist
-  if ~file_test(path_to_output+'/00_starinfo.txt') then begin
-    forprint,textout=path_to_output+'/00_starinfo.txt',['maskname '],$
+  if ~file_test(path_to_output+'00_starinfo.txt') then begin
+    forprint,textout=path_to_output+'00_starinfo.txt',['maskname '],$
       ['filtername '],['objname '],[99.99],[99.99],[99.99],[99.99],/nocomment
-  endif
+  endif  
   
-  
-  ;get filter name
-  choice=' '
-  print,'filter name?'
-  read,choice
-  filtername=choice
-  
-  
-  ;check if fits files exist
-  if gzending eq 0 then spawn,'ls '+maskname+'_'+choice+'_*eps.fits > xx__spec_list.txt' $
-  else spawn,'ls '+maskname+'_'+choice+'_*eps.fits.gz > xx__spec_list.txt'
+  ;check if fits files exist and create filenames array
+  if gzending eq 0 then spawn,'ls '+maskname+'_?_*eps.fits > xx__spec_list.txt' $
+  else spawn,'ls '+maskname+'_?_*eps.fits.gz > xx__spec_list.txt'
   readcol,'xx__spec_list.txt',filenames,format='A',/silent
   spawn,'rm xx__spec_list.txt
   if n_elements(filenames) eq 0 then message,'no fits files found... probably bad fliter choice'
-  
   
   ;get the names of the slits
   slitnames=[]
   for i=0,n_elements(filenames)-1 do $
     slitnames=[slitnames,bmep_get_slitname(filenames[i],maskname,/eps,gzending=gzending)]
-  print,slitnames
+  slitnames_nodup=slitnames[rem_dup(slitnames)]
 
   
+  
   ;get which slit to do.
-  forprint,indgen(n_elements(filenames)),replicate('. ',n_elements(filenames)),slitnames
+  forprint,indgen(n_elements(slitnames_nodup)),replicate('. ',n_elements(slitnames_nodup)),slitnames_nodup
   print,n_elements(filenames),' all files'
   print,'which slit?'
   print,'The blank slit is the full 2d image... dont choose this one'
@@ -5150,36 +5154,24 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
   if choice lt 0 then goto,theend
   if choice ge n_elements(filenames)+1 then goto,theend
   
-  if choice eq n_elements(filenames) then choicearr=indgen(n_elements(filenames)) else choicearr=[choice]
+  if choice eq n_elements(filenames) then choicearr=indgen(n_elements(filenames)) else choicearr=where(slitnames eq slitnames_nodup[choice])
   
   for i=0,n_elements(choicearr)-1 do begin
-  
-  
     slitname=slitnames[choicearr[i]]
-    
+    epsfile=filenames[choicearr[i]]
     ;check if the files exist
-    if gzending eq 0 then begin
-      if ivarending eq 0 then begin
-        epsfile=maskname+'_'+filtername+'_'+slitname+'_eps.fits'
-        stdfile=maskname+'_'+filtername+'_'+slitname+'_std.fits'
-        endif else begin
-          epsfile=maskname+'_'+filtername+'_'+slitname+'_eps.fits'
-          stdfile=maskname+'_'+filtername+'_'+slitname+'_ivar.fits'
-          endelse
-    endif else begin
-      if ivarending eq 0 then begin
-        epsfile=maskname+'_'+filtername+'_'+slitname+'_eps.fits.gz'
-        stdfile=maskname+'_'+filtername+'_'+slitname+'_std.fits.gz'
-        endif else begin
-          epsfile=maskname+'_'+filtername+'_'+slitname+'_eps.fits.gz'
-          stdfile=maskname+'_'+filtername+'_'+slitname+'_ivar.fits.gz'
-          endelse
-    endelse
-    if ~file_test(epsfile) then print,'file '+epsfile+' does not exist'
-    if ~file_test(stdfile) then print,'file'+stdfile+' does not exist'
+    if gzending eq 0 then $
+      if ivarending eq 0 then $
+        stdfile=strmid(epsfile,strlen(epsfile)-strlen('_eps.fits'))+'_std.fits' $
+        else $
+          stdfile=strmid(epsfile,strlen(epsfile)-strlen('_eps.fits'))+'_ivar.fits' $
+      else $
+      stdfile=strmid(epsfile,strlen(epsfile)-strlen('_eps.fits.gz'))+'_ivar.fits.gz'
+    ;check if these files actually exist
+    if ~file_test(epsfile) then print,'WARNING!!!! file '+epsfile+' does not exist'
+    if ~file_test(stdfile) then print,'WARNING!!!! file'+stdfile+' does not exist'
     
     if file_test(epsfile) and file_test(stdfile) and slitname ne '' then begin
-    
       ;read in files
       sciimg=readfits(epsfile,shdr, /SILENT)
       sciimg=double(sciimg)
@@ -5200,6 +5192,7 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
       var_img=replicate(0.0,nx,ny)
       var_img[index]=std_img[index]*std_img[index]
       
+      ;clean variance image of nan or inf values
       ind=where(finite(var_img) eq 0,ct)
       if ct ne 0 then var_img[ind]=0.0
       
@@ -5225,18 +5218,14 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
 ;      print,'CD1_1:  ' ,sxpar(shdr,'CD1_1')
 ;      PRINT,'DELTA:  ',delta
       
-      
-      
-
-      
       ;snr image
       index=where(std_img ne 0)
       snrimg=sciimg/std_img[index]
       snr2sigCut=snrimg
-      index=where(snr2sigCut lt 2.0,ct)
-      if ct gt 0 then snr2sigCut[index]=0.5
+      index=where(snr2sigCut lt 2.0,/null)
+      snr2sigCut[index]=0.0
       
-      ;mess with these to change how an image is viewed.
+      ;mess with these to change how an image is viewed. (scaling)
       botpercent=10.0
       toppercent=90.0
       
@@ -5248,7 +5237,7 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
       big_img[*,ny*2:ny*3-1]=bytscl(sciimg,top=255,/NAN,$
         min=bmep_percent_cut(abs(sciimg),5.0),max=bmep_percent_cut(abs(sciimg),95.0))   ;snr img
       big_img[*,ny*3:ny*4-1]=bytscl(snr2sigCut,top=255,/NAN,$
-        min=0.5,max=1.5)   ;snr img
+        min=2.0,max=3.0)   ;snr img
         
       ;resize big_img if really big in y direction...
       if ny*4 gt 1000 then begin
