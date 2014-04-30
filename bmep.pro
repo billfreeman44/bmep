@@ -5156,7 +5156,7 @@ pro bmep,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=
     ;check if the files exist
     if gzending eq 0 then $
       if ivarending eq 0 then $
-        stdfile=strmid(epsfile,0,strlen(epsfile)-strlen('_eps.fits'))+'_std.fits' $
+        stdfile=strmid(epsfile,0,strlen(epsfile)-strlen('_eps.fits'))+'_sig.fits' $
         else $
           stdfile=strmid(epsfile,0,strlen(epsfile)-strlen('_eps.fits'))+'_ivar.fits' $
       else $
