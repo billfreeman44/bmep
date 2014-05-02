@@ -316,24 +316,13 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
         print,'no matching stars found ',maskname,' ',filtername
         yexpect=-1
       endelse
-      
-      
-      
+
       
       ;IF THE OBJECT IS EXTRACTED IN OTHER BANDS, THEN USE THEIR WIDTH, NOT THE STAR.
       index=where(npmaskarr eq maskname and npslitarr eq slitname AND npobjnumarr eq 1,ct)
       if ct gt 0 then begin
         
         endif;fixing objects 
-      
-      
-      
-      
-      
-      
-      
-      
-      
       
       ;      print,'slitname, yexpect, midpoint, yshift, width'
       print,maskname,' ', filtername,' ', slitname,' ',1, yexpect, midpoint, yshift, width
@@ -384,12 +373,7 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
       'Flag if is a star', $
       'expected y position' $
       ]
-      
-      
-      
-      
-      
-      
+
       
     yexpect=float(yexpect)
     if yexpect ne -1 then begin
@@ -470,15 +454,11 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
           skipthisnp:
         endfor
       endif ;else print,'no np objects' ;ct gt 0
-      
     ;      stop
-      
     endif ; yexpect -1
   ;    endif ; NOREPEAT and file test
   ;    stop
   endfor ; n_ele objects
-  
-  
   theend:
   if norepeat eq 0 then ps_end
   cd,original_dir
