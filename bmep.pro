@@ -3616,7 +3616,7 @@ pro bmep_mosdef,path_to_output=path_to_output
       big_img=findgen(nx,(ny*2))
       big_img[*,ny*0:ny*1-1]=bytscl(sciimg,top=255,/NAN,$
         min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))   ;science img
-      big_img[*,ny*3:ny*4-1]=bytscl(snr2sigCut,top=255,/NAN,$
+      big_img[*,ny*1:ny*2-1]=bytscl(snr2sigCut,top=255,/NAN,$
         min=0.0,max=3.5)   ;snr img
         
         
