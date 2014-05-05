@@ -1113,12 +1113,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               if n_elements(centerarr) eq 1 then suffix='' else suffix='.'+ssi(j+1)
               if objnum ne -1 then suffix='.'+ssi(objnum)
 
-              ;                  if state.savetext eq 0 then begin
 
-;              forprint,wavel,flux,err,$
-;                textout=state.savepath+slitname+suffix+'.txt',comment="# wavelength(A) Flux Flux_error"
-;              forprint,wavel,flux_opt,erropt,$
-;                textout=state.savepath+slitname+suffix+'_optimal.txt',comment="# wavelength(A) Flux Flux_error"
 
                 
               if n_elements(centerarr) eq 1 then suffix='' else suffix='.'+ssi(j+1)
@@ -1145,7 +1140,13 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               
               
               FORWARD_FUNCTION bmep_make_hdr
-              
+              if state.savetext eq 1 then begin
+              forprint,wavel,flux,err,$
+                textout=state.savepath+fitsfilenm+'.txt',comment="# wavelength(A) Flux Flux_error"
+              forprint,wavel,flux_opt,erropt,$
+                textout=state.savepath+fitsfilenm+'_optimal.txt',comment="# wavelength(A) Flux Flux_error"
+                endif
+                
               ;make hdr
               ;exten 0
               header=bmep_make_hdr('',extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
@@ -1206,16 +1207,6 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               revisevar=0
               print,'saved ',fitsfilenm
               
-              
-              
-;                      outpath=state.savepath+fitsfilenm+'.1d.txt'
-;                      forprint,wavel,flux,err,$
-;                      textout=outpath,comment="# wavelength(A) Flux Flux_error"
-;
-;                      outpath=state.savepath+fitsfilenm+'.1d_optimal.txt'
-;                      forprint,wavel,flux_opt,erropt,$
-;                      textout=outpath,comment="# wavelength(A) Flux Flux_error"
-              
               ;if object is a star, update the starlist.txt
               index=WHERE(extrainfo1 eq 'ISSTAR',ct)
               IF ct eq 1 and extrainfo2[index[0]] eq 1 and objnum eq -1 and j eq 0 then begin
@@ -1251,6 +1242,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
                 endelse ; ct
                 forprint,textout=state.savepath+'00_starinfo.txt',maskstar+' ',$
                   filtstar+' ',objstar+' ',yexpect_star,yactual_star,widthstar,sigmastar,/nocomment
+                print,'UPDATED 00_STARINFO.TXT
                   
                   
               endif ; extrainfo2[index]
@@ -1888,12 +1880,12 @@ if key eq 'X' then begin
       print,maskname
       print,'is the maskaname'
       
-      if ~file_test('~/REDSHIFT_CATALOG_bmep.txt') then $
+      if ~file_test(state.savepath+'00_redshift_catalog_bmep.txt') then $
         forprint,maskname+' ',slitname,redshift,redshifterr,' '+new_name,new_wavel,coeff[1],$
-        textout='~/REDSHIFT_CATALOG_bmep.txt',comment="# maskname slit z zerr linename restwave obswave", $
+        textout=state.savepath+'00_redshift_catalog_bmep.txt',comment="# maskname slit z zerr linename restwave obswave", $
         format='(A20,A14,F10.6,F13.8,A12,F11.3,F11.3)' $
       else begin
-      readcol,'~/REDSHIFT_CATALOG_bmep.txt',v1,v2,v3,v4,v5,v6,v7,format='A,A,F,F,A,F,F'
+      readcol,state.savepath+'00_redshift_catalog_bmep.txt',v1,v2,v3,v4,v5,v6,v7,format='A,A,F,F,A,F,F'
       index=where(sss(v1) eq sss(maskname) and sss(v2) eq sss(slitname) and sss(v5) eq sss(new_name), ct)
       ;                    forprint,v1,v2,v5
       ;                    print,maskname,slitname,new_name
@@ -1936,7 +1928,7 @@ if key eq 'X' then begin
       v7=v7[index]
       
       forprint,v1+' ',v2,v3,v4,' '+v5,v6,v7,$
-        textout='~/REDSHIFT_CATALOG_bmep.txt',comment="# maskname slit z zerr linename restwave obswave",$
+        textout=state.savepath+'00_redshift_catalog_bmep.txt',comment="# maskname slit z zerr linename restwave obswave",$
         format='(A20,A14,F10.6,F13.8,A12,F11.3,F11.3)'
       index=where(sss(v1) eq sss(maskname) and sss(v2) eq sss(slitname),ct)
       if ct ge 1 then $
@@ -3734,6 +3726,329 @@ pro bmep_mosdef,path_to_output=path_to_output
   print,'end of best mosfire extraction program'
 end
 
+
+
+
+pro bmep_mosdef_new,path_to_output=path_to_output
+  FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
+    bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
+  !except=2 ;see division by zero errors instantly.
+  astrolib
+  
+  ;set output to what is in the envoirnment variable
+  x=getenv('BMEP_MOSDEF_2D')
+  if x ne '' then path_to_output=x
+  ;default if no env found
+  if ~keyword_set(path_to_output) then path_to_output='~/mosfire/output/idl_output/2D/' ; no trailing slash
+  
+  ;ensure that there is a '/' at the end of the path.
+  if strmid(path_to_output,strlen(path_to_output)-1) ne '/' then path_to_output=path_to_output+'/'
+  cd,path_to_output,current=original_dir
+  
+  ;clear away all windows!!
+  close,/all
+  ireset,/no_prompt
+  
+  ;get where to save output of extraction program
+  x=getenv('BMEP_MOSDEF_1D')
+  if x ne '' then savepath=x else begin
+    savepath=path_to_output+'/1d_extracted/'
+    ;create folder to extract to if it doesn't exist.
+    if ~bmep_DIR_EXIST(savepath) then spawn,'mkdir 1d_extracted'
+    endelse
+  ;ensure that there is a '/' at the end of the path.
+  if strmid(savepath,strlen(savepath)-1) ne '/' then savepath=savepath+'/'
+  
+  ;create a 00_starinfo.txt if not exist
+  if ~file_test(savepath+'00_starinfo.txt') then begin
+    forprint,textout=savepath+'00_starinfo.txt',['maskname '],$
+      ['filtername '],['objname '],[99.99],[99.99],[99.99],[99.99],/nocomment
+  endif
+  
+  
+  ;parse folder into different masks!!
+  spawn,'ls *.2d.fits > tempfiles.txt'
+  readcol,'tempfiles.txt',filenames,format='A',/silent
+  spawn,'rm tempfiles.txt'
+  
+  ;parse names
+  masks=[]
+  filters=[]
+  objects=[]
+  for i=0,n_elements(filenames)-1 do begin
+    substrings=strsplit(filenames[i],'.',/extract)
+    if n_elements(substrings) eq 5 then begin
+      masks=[masks,substrings[0]]
+      filters=[filters,substrings[1]]
+      objects=[objects,substrings[2]]
+    endif ;else message,'ERROR something without a proper name is in the folder.'
+  end
+  
+  ; user  choose mask
+  masks_no_duplicates=masks[rem_dup(masks)]
+  forprint,indgen(n_elements(masks_no_duplicates)),' '+masks_no_duplicates
+  print,'which number'
+  read,choice
+  if choice lt 0 then goto,theend
+  if choice ge n_elements(masks_no_duplicates) then goto,theend
+  maskname=masks_no_duplicates[choice]
+  print,'mask: ',maskname
+  
+  ;remove everything except that mask from "database"
+  index=where(masks eq maskname,ct)
+  if ct eq 0 then message,'error' ; check for strange errors
+  masks=masks[index]
+  filters=filters[index]
+  objects=objects[index]
+  
+   
+  ; user  choose filter.
+  ;scratch that, don't choose the filter.
+  filters_no_duplicates=filters[rem_dup(filters)]
+  filtername=filters_no_duplicates[0]
+  
+  ;remove everything except that filter from "database"
+  index=where(filters eq filtername,ct)
+  if ct eq 0 then message,'error' ; check for strange errors
+  masks=masks[index]
+  filters=filters[index]
+  objects=objects[index]
+  
+  
+  ;user choose object.
+  forprint,indgen(n_elements(objects)),' '+objects
+  print,n_elements(objects),' many files'
+  print,n_elements(objects)+1,' all stars'
+  print,'which number'
+  choice=0
+  read,choice
+  if choice lt 0 then goto,theend
+  if choice ge n_elements(objects)+2 then goto,theend
+  ;do all objects
+  if choice eq n_elements(objects) then begin
+    choicearr=indgen(n_elements(objects))
+    minobjnum=0
+    maxobjnum=n_elements(objects)-1
+    print,'min object num?'
+    read,minobjnum
+    print,'max object num?'
+    read,maxobjnum
+    index=where(choicearr ge minobjnum and choicearr le maxobjnum,/null)
+    choicearr=choicearr[index]
+  endif else choicearr=[choice]
+  
+  ;FIND ALL THE STARS!!!
+  priority_arr=[]
+  for i=0,n_elements(objects)-1 do begin
+    hdr=headfits(maskname+filtername+objects[i]+'.2D.fits',1)
+    priority_arr=[priority_arr,sxpar(hdr,'PRIORITY')]
+    endfor
+  if choice eq n_elements(objects)+1 then begin
+    choicearr=where(abs(priority_arr) eq 1.0,ct)
+    print,objects[choicearr],' are stars'
+  endif ; chose to do all stars.
+  
+  for i=0,n_elements(choicearr)-1 do begin
+    for j=0,n_elements(filters_no_duplicates)-1 do begin
+      slitname=objects[choicearr[i]]
+      filtername=filters_no_duplicates[j]
+      filename=maskname+'.'+filtername+'.'+slitname+'.2d.fits'
+      print,filename
+      
+      if ~file_test(filename) then begin
+        print,'WARNING: NO IMAGE FOUND, ',FILENAME
+        goto, no_do_image
+      ENDIF
+      
+      ;read in files
+      sciimg=readfits(filename,shdr, /SILENT,exten_no=1)
+      sciimg=double(sciimg)
+      
+      index=where(finite(sciimg) eq 0,/null)
+      sciimg[index]=0.0
+      
+      ;calculate variance image
+      noise_img=readfits(filename, /SILENT,exten_no=4)
+      ;clean image
+      index=where(noise_img eq 99,/null)
+      sciimg[index]=0.0
+      noise_img[index]=0.0
+      index=where(finite(noise_img) eq 0,/null)
+      sciimg[index]=0.0
+      noise_img[index]=0.0
+      noise_img=double(noise_img)
+      var_img=noise_img*noise_img
+      
+      ;calculate wavel.
+      wavel=(sxpar(shdr,'CRVAL1')+findgen(n_elements(sciimg[*,0]))*sxpar(shdr,'CDELT1'))
+      
+      ;combine images and make snr image
+      ny=n_elements(sciimg[0,*])
+      nx=n_elements(sciimg[*,0])
+      
+      ;snr image
+      index=where(var_img eq 0,ct)
+      if ct ne 0 then var_img[index]=9801.0
+      snrimg=abs(sciimg/sqrt(var_img))
+      snr2sigCut=snrimg
+      index=where(snrimg lt 2.,ct)
+      if ct gt 0 then snr2sigCut[index]=0.0
+
+      
+      del=10.
+      botpercent=del
+      toppercent=100.-del
+      
+      kernel = GAUSSIAN_FUNCTION([500,5], WIDTH=15, MAXIMUM=255,/double)
+      kernel=kernel-avg(kernel)
+      kernel=[[0,-1,0],$
+              [-1,5,-1],$
+              [0,-1,0]]      
+      kernel=[[-1,-1,-1],$
+              [-1,8,-1],$
+              [-1,-1,-1]]     
+      kernel=findgen(11,11)
+      for ii=0,n_elements(kernel[*,0])-1 do $
+        for jj=0,n_elements(kernel[*,0])-1 do $
+        kernel[ii,jj]=(-1.0)*bmep_LoG(ii-n_elements(kernel[*,0])/2,jj-n_elements(kernel[*,0])/2,3) 
+;      kernel=[[ 0,-1,-1,-1, 0],$
+;              [-1, 3, 3, 3,-1],$
+;              [-1, 3, 5, 3,-1],$
+;              [-1, 3, 3, 3,-1],$
+;              [ 0,-1,-1,-1, 0]]      
+;      kernel=[[ 0,-1,-1,-1, 0],$
+;              [-1, 3, 5, 3,-1],$
+;              [-1, 5, 7, 5,-1],$
+;              [-1, 3, 5, 3,-1],$
+;              [ 0,-1,-1,-1, 0]]
+      kernel=kernel-avg(kernel)
+      
+;      print,kernel
+      conv_img=convol((sciimg),kernel,/edge_zero,/normalize)
+      for ii=0,n_elements(conv_img[*,0])-1 do conv_img[ii,*]=conv_img[ii,*]-aVG(conv_img[ii,*])
+
+;      big_img=findgen(nx,(ny*4))
+;      big_img[*,ny*0:ny*1-1]=bytscl(sciimg,top=255,/NAN,$
+;        min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))   ;science img
+;      big_img[*,ny*1:ny*2-1]=bytscl(conv_img,top=255,/NAN,$
+;        min=bmep_percent_cut(conv_img,00),max=bmep_percent_cut(conv_img,100))  ;var img 0,15
+;      big_img[*,ny*2:ny*3-1]=bytscl(snrimg,top=255,/NAN,$;min=98.5,max=99.0)
+;        min=bmep_percent_cut(snrimg,botpercent),max=bmep_percent_cut(snrimg,90.0))   ;snr img
+;      big_img[*,ny*3:ny*4-1]=bytscl(snr2sigCut,top=255,/NAN,$
+;        min=0.0,max=3.5)   ;snr img
+      
+      
+      big_img=findgen(nx,(ny*2))
+      big_img[*,ny*0:ny*1-1]=bytscl(sciimg,top=255,/NAN,$
+        min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))   ;science img
+      big_img[*,ny*3:ny*4-1]=bytscl(snr2sigCut,top=255,/NAN,$
+        min=0.0,max=3.5)   ;snr img
+        
+        
+      ;calculate where object SHOULD be!
+      ;note 'shdr' was the science header read in earlier.
+      yexpect=-1
+      isstar=-1
+      minwidth=-1
+      yshift=0.0
+      if ct eq 1 then begin
+        pixscale=0.1799
+        midpoint=ny/2.0
+        yexpect=midpoint+sxpar(shdr,'OFFSET')/pixscale
+        ;check if object is a star, If it isn't shift by amount that star is offset by
+        if abs(sxpar(shdr,'PRIORITY')) eq 1 then isstar=1 else begin
+          isstar=0
+          readcol,savepath+'00_starinfo.txt',maskstar,$
+            filtstar,objstar,yexpect_star,yactual_star,widthstar,sigmastar,/silent,format='A,A,A,F,F,F,F'
+          index=where(maskstar eq maskname and filtstar eq filtername,ct)
+          if ct ne 0 then begin
+            print,ct,' number of stars found for ',maskname,' ',filtername
+            yshift=avg(yexpect_star[index] - yactual_star[index])
+            minwidth=min(widthstar[index])
+          endif else print,'no matching stars found ',maskname,' ',filtername
+        endelse ;if isstar
+        
+        if isstar eq 1 and choice eq n_elements(objects) then goto, no_do_image
+        print,'slitname, yexpect, midpoint, yshift, minwidth'
+        print,slitname, yexpect, midpoint, yshift, minwidth
+        
+        yexpect=yexpect-yshift
+        PRINT,'new yexpect:',yexpect
+      endif else print,'no object found in the slitlist file?!?!?!?'
+      
+      ;draw white line
+      big_img[*,yexpect]=255
+      
+      highval=max(big_img)
+      lowval=min(big_img)
+      
+      
+      ;calculate info to add to hdr (include zguess placeholders)
+      extrainfo1=[$
+        'CRVAL1',$
+        'CDELT1',$
+        'CRPIX1',$
+        'CTYPE1',$
+        'EXPTIME',$
+        'FILNM',$
+        'MSKNM',$
+        'FILTNM',$
+        'SLITNM',$
+        'ISSTAR',$
+        'MINW',$
+        'YEXPECT'$
+        ]
+        
+      extrainfo2=[$
+        string(sxpar(shdr,'CRVAL1')),$
+        string(sxpar(shdr,'CDELT1')),$
+        string(sxpar(shdr,'CRPIX1')),$
+        'LINEAR',$
+        string(sxpar(shdr,'EXPTIME')),$
+        filename,$
+        maskname,$
+        filtername,$
+        slitname, $
+        ssi(isstar), $
+        ssf(minwidth), $
+        ssf(yexpect) $
+        ]
+        
+      ;comments
+      extrainfo3=[$
+        ' ',$
+        ' ',$
+        ' ',$
+        ' ',$
+        ' total exposure time (seconds)',$
+        ' name of file',$
+        ' name of mask',$
+        ' name of filter',$
+        ' name of slit', $
+        ' Flag if is a star', $
+        ' minimum width (-1 default)', $
+        ' expected y position' $
+        ]
+        
+      bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername,wavel,savepath,$
+        revisevar=0,extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=0
+      
+;      cghistoplot,snrimg,xr=[0,15],binsize=0.2,ytitle='SIGNAL TO NOISE RATIO',TITLE=MASKNAME+FILTERNAME+SLITNAME
+;      stop
+      
+      no_do_image:
+    endfor ; filters_no_duplicates
+  endfor ; choicearr
+  
+  theend:
+  
+  cd,original_dir
+  print,'end of best mosfire extraction program'
+end
+
+
+
+
 FUNCTION bmep_MouseDown, oWin, x, y, iButton, KeyMods, nClicks
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
@@ -4383,7 +4698,7 @@ pro bmep,path_to_output=path_to_output
           ]
           
         bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername,wavel,savepath,revisevar=0,$
-          extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=1
+          extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=0
         
       endif ; if files exist
     endfor; flitername arr
