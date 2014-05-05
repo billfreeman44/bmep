@@ -285,13 +285,15 @@ end
 ;       The majority of the program is housed in the bmep_keyboardhandler() function.
 ;
 pro bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername,wavel,savepath,$
-    revisevar=revisevar,extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=savetext
+    revisevar=revisevar,extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=savetext,$
+    monitorfix=monitorfix
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   if ~keyword_set(extrainfo1) then extrainfo1=['0']
   if ~keyword_set(extrainfo2) then extrainfo2=['0']
   if ~keyword_set(extrainfo3) then extrainfo3=['0']
   if ~keyword_set(savetext) then savetext=0
+  if ~keyword_set(monitorfix) then monitorfix=0
   !except=2
   
   ;check version number
@@ -316,7 +318,8 @@ pro bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername
   im1.window.UVALUE={x0:0, y0:0, buttonDown:0L,$
     ydata:replicate(0.D,n_elements(sciimg[0,*])),ydataerr:replicate(0.D,n_elements(sciimg[0,*])),data:sciimg,$
     slitname:slitname+'_'+filtername,wavel:wavel,savepath:savepath,var_img:var_img,revisevar:revisevar,$
-    raw_slitname:slitname,extrainfo1:extrainfo1,extrainfo2:extrainfo2,extrainfo3:extrainfo3,savetext:savetext,cont_mode:0,$
+    raw_slitname:slitname,extrainfo1:extrainfo1,extrainfo2:extrainfo2,extrainfo3:extrainfo3,$
+    savetext:savetext,cont_mode:0,monitorfix:monitorfix,$
     stats_mode:0,n_bins:0,l_bins:[0,0,0,0,0,0,0,0,0,0,0],r_bins:[0,0,0,0,0,0,0,0,0,0,0]}
   im1.window.MOUSE_DOWN_HANDLER='bmep_MouseDown'
   im1.window.MOUSE_UP_HANDLER='bmep_MouseUp'
@@ -1496,7 +1499,10 @@ endif
 ;fit a gaussian and center on profile
 if key eq 'm' then begin
   cursor,xpos,ypos,/nowait
-  if xpos lt 0 then xpos = n_elements(state.ydata)/2
+  if xpos lt 0 or xpos gt n_elements(state.ydata) then begin 
+    temp=max(state.ydata,index)
+    xpos = index
+    endif
   
   lower=round(xpos-mwidth)
   if lower lt 0 then lower = 0
@@ -3398,7 +3404,7 @@ end
 
 
 
-pro bmep_mosdef,path_to_output=path_to_output
+pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   !except=2 ;see division by zero errors instantly.
@@ -3711,7 +3717,8 @@ pro bmep_mosdef,path_to_output=path_to_output
         ]
         
       bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername,wavel,savepath,$
-        revisevar=0,extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=0
+        revisevar=0,extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=0,$
+        monitorfix=monitorfix
       
 ;      cghistoplot,snrimg,xr=[0,15],binsize=0.2,ytitle='SIGNAL TO NOISE RATIO',TITLE=MASKNAME+FILTERNAME+SLITNAME
 ;      stop
@@ -4074,7 +4081,7 @@ FUNCTION bmep_MouseUp, oWin, x, y, iButton
   print,'mouse up at',x,y
   print,x0,' to ',x
   
-  if n_elements(state.data[*,0]) gt monitor_width then begin
+  if n_elements(state.data[*,0]) gt monitor_width and state.monitorfix eq 1 then begin
     print,'monitor not wide enough ', (float(n_elements(state.data[*,0]))/float(monitor_width))
     print,'trying to account for this...'
     x0=x0* (float(n_elements(state.data[*,0]))/float(monitor_width))
