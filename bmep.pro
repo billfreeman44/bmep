@@ -1788,6 +1788,7 @@ endif
 
 ;guess redshift for header purposes
 if key eq 'X' then begin
+  IF N_ELEMENTS(centerarr) gt 1 then goto, Xexit
   nofit=0
   !P.MULTI=[0,1,1]
   xr_save=xr
@@ -1845,8 +1846,10 @@ if key eq 'X' then begin
     
     ;define line names
     linenames= ['Ha',    'NII', '[OII]','[OIII]','[OIII]2','Hb',    'SII','hgamma']
-;    linewavels=[6564.614,6585.27,3728.48,5008.239,4960.295,4862.721,6718.29,4339.00];vacuum
-    linewavels=[6562.801,6583.45,3727.28,5006.843,4958.911,4861.363,6716.44,4341.00];air
+    if state.vacuum eq 1 then $
+      linewavels=[6564.614,6585.27,3728.48,5008.239,4960.295,4862.721,6718.29,4339.00]$;vacuum
+      else $
+        linewavels=[6562.801,6583.45,3727.28,5006.843,4958.911,4861.363,6716.44,4341.00];air
     
     forprint,indgen(n_elements(linenames)),' '+linenames,linewavels
     print,n_elements(linenames),'other'
@@ -1858,7 +1861,7 @@ if key eq 'X' then begin
       if choice eq n_elements(linenames) then begin
         new_name='?'
         new_wavel=-99.99
-        print,'enter line name
+        print,'enter line name (NO SPACES)'
         read,new_name
         print,'enter line wavelength (make notice of if u need vac/air)'
         read,new_wavel
@@ -1874,44 +1877,66 @@ if key eq 'X' then begin
 
       print,'z=',redshift
       print,'line name=',new_name
-      print,'added to fits hdr.'
+
       
-      if objnum ne -1 then slitname=state.slitname+'---'+ssi(objnum) else slitname=state.slitname
-      index=where(state.extrainfo1 eq 'MSKNM',ct)
-      IF ct EQ 1 then maskname=state.extrainfo2[index[0]] else maskname='UNKNOWN'
+      extrainfo1=state.extrainfo1
+      extrainfo2=state.extrainfo2
+      extrainfo3=state.extrainfo3
       
-      print,maskname
-      print,'is the maskaname'
+
+      ;extract original name from fits header.
+      index=WHERE(extrainfo1 eq 'MSKNM',ct)
+      maskname=extrainfo2[index]
+      index=WHERE(extrainfo1 eq 'FILTNM',ct)
+      flitername=extrainfo2[index]
+      index=WHERE(extrainfo1 eq 'SLITNM',ct)
+      slitname=extrainfo2[index]
+      
       
       if ~file_test(state.savepath+'00_redshift_catalog_bmep.txt') then $
-        forprint,maskname+' ',slitname,redshift,redshifterr,' '+new_name,new_wavel,coeff[1],$
-        textout=state.savepath+'00_redshift_catalog_bmep.txt',comment="# maskname slit z zerr linename restwave obswave", $
-        format='(A20,A14,F10.6,F13.8,A12,F11.3,F11.3)' $
+        forprint,maskname+' ',filtername+' ',slitname+' ',sss(abs(objnum))+' ',redshift,redshifterr,' '+new_name,new_wavel,coeff[1],$
+        textout=state.savepath+'00_redshift_catalog_bmep.txt',$
+        comment="# maskname filter slit ap_no z zerr linename restwave obswave", $
+        format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)' $
       else begin
-      readcol,state.savepath+'00_redshift_catalog_bmep.txt',v1,v2,v3,v4,v5,v6,v7,format='A,A,F,F,A,F,F'
-      index=where(sss(v1) eq sss(maskname) and sss(v2) eq sss(slitname) and sss(v5) eq sss(new_name), ct)
-      ;                    forprint,v1,v2,v5
-      ;                    print,maskname,slitname,new_name
-      print,ct,' exact matches found..'
+      readcol,state.savepath+'00_redshift_catalog_bmep.txt',v1,v2,v3,v4,v5,v6,v7,v8,v9,format='A,A,A,A,F,F,A,F,F'
+      index=where(sss(v1) eq sss(maskname) and sss(v4) eq sss(slitname) $
+         and sss(v2) eq sss(filtername) and sss(v7) eq sss(new_name), ct)
+      if ct ge 1 then print,'OVERWRITING OLD REDSHIFT INFO'      
       if ct ge 1 then begin
         v1[index]=maskname
-        v2[index]=slitname
-        v3[index]=redshift
-        v4[index]=redshifterr
-        v5[index]=new_name
-        v6[index]=new_wavel
-        v7[index]=coeff[1]
+        v2[index]=filtername
+        v3[index]=slitname
+        v4[index]=sss(abs(objnum))
+        v5[index]=redshift
+        v6[index]=redshifterr
+        v7[index]=new_name
+        v8[index]=new_wavel
+        v9[index]=coeff[1]
       endif else begin
         v1=[v1,maskname]
-        v2=[v2,slitname]
-        v3=[v3,redshift]
-        v4=[v4,redshifterr]
-        v5=[v5,new_name]
-        v6=[v6,new_wavel]
-        v7=[v7,coeff[1]]
+        v2=[v2,filtername]
+        v3=[v3,slitname]
+        v4=[v4,sss(abs(objnum))]
+        v5=[v5,redshift]
+        v6=[v6,redshifterr]
+        v7=[v7,new_name]
+        v8=[v8,new_wavel]
+        v9=[v9,coeff[1]]
       endelse
       
-      ;SORT THE LIST ->MASK -> SLIT
+      ;SORT THE LIST ->MASK ->filter -> SLIT
+      index=bsort(v3)
+      v1=v1[index]
+      v2=v2[index]
+      v3=v3[index]
+      v4=v4[index]
+      v5=v5[index]
+      v6=v6[index]
+      v7=v7[index]
+      v8=v8[index]
+      v9=v9[index]
+      
       index=bsort(v2)
       v1=v1[index]
       v2=v2[index]
@@ -1920,6 +1945,8 @@ if key eq 'X' then begin
       v5=v5[index]
       v6=v6[index]
       v7=v7[index]
+      v8=v8[index]
+      v9=v9[index]
       
       index=bsort(v1)
       v1=v1[index]
@@ -1929,14 +1956,16 @@ if key eq 'X' then begin
       v5=v5[index]
       v6=v6[index]
       v7=v7[index]
+      v8=v8[index]
+      v9=v9[index]
       
-      forprint,v1+' ',v2,v3,v4,' '+v5,v6,v7,$
-        textout=state.savepath+'00_redshift_catalog_bmep.txt',comment="# maskname slit z zerr linename restwave obswave",$
+      forprint,v1+' ',v2+' ',v3+' ',v4,' '+v5,v6,' '+v7+' ',v8,v9,$
+        textout=state.savepath+'00_redshift_catalog_bmep.txt',comment="# maskname filter slit ap_no z zerr linename restwave obswave",$
         format='(A20,A14,F10.6,F13.8,A12,F11.3,F11.3)'
-      index=where(sss(v1) eq sss(maskname) and sss(v2) eq sss(slitname),ct)
+      index=where(sss(v1) eq sss(maskname) and sss(v3) eq sss(slitname),ct)
       if ct ge 1 then $
-        forprint,v1[index]+' ',v2[index],v3[index],v4[index],' '+v5[index],v6[index],v7[index],$
-          comment="# maskname slit z zerr linename restwave obswave",$
+        forprint,v1[index]+' ',v2[index]+' ',v3[index]+' ',v4[index],' '+v5[index],v6[index],' '+v7[index]+' ',v8[index],v9[index],$
+          comment="# maskname filter slit ap_no z zerr linename restwave obswave",$
           format='(A20,A14,F10.6,F13.8,A12,F11.3,F11.3)'
     endelse ; file found
   endif;choice
