@@ -797,120 +797,170 @@ end
 
 
 
-function bmep_guess_redshift,state,wavel,fopt,linename=linename,linecol=linecol
+function bmep_guess_redshift,state,wavel,fopt,fopterr,objnum,linename=linename,linecol=linecol
+  print
+  print
+  print
+  print,'BEGINNING AUTOMATIC REDSHIFT GUESSING.'
   ;get mask name
   index=where(state.extrainfo1 eq 'MSKNM',ct)
-  if ct eq 0 then begin
-    linename='none'
-    linecol=-999
-    return,-999.9
-  endif
   maskname=state.extrainfo2[index[0]]
   z=strmid(maskname,2,1)
   
   ;get filtername
   index=where(state.extrainfo1 eq 'FILTNM')
-  filtername=strcompress(state.extrainfo2[index],/remove_all)
+  filtername=sss(state.extrainfo2[index[0]])
+  ;get slitname
+  index=where(state.extrainfo1 eq 'SLITNM')
+  slitname=sss(state.extrainfo2[index[0]])
   
   ;define line names
-  linenames=['[OII]', 'Hb',  '[OIII]','Ha']
-  linewavels=[3728.5,4862.7,5008.2,6564.6]
+  linenames= ['OII_dbl','OIII5008','OIII4960','HB4863','HG4342','HA6565','NII6585']
+  if state.vacuum eq 1 then $
+    linewavels=[3728.48,5008.239,4960.295,4862.721,4339.00,6564.614,6585.27]$;vacuum
+    else $
+      linewavels=[3727.28,5006.843,4958.911,4861.363,4341.00,6562.801,6583.45];air
+  
+  
   
   best_ind=0
+  n_good_lines=0
   ;get bins
   NBINS=state.n_bins
   if NBINS gt 1 then begin
-    tot_fluxes=[]
     for i=0,NBINS-1 do begin
-      tot_fluxes=[tot_fluxes,total(fopt[state.l_bins[i]:state.r_bins[i]])]
-      if abs(state.l_bins[i]-state.r_bins[i]) gt 100 then tot_fluxes[-1]=0.0
-    endfor
-    best_ind=where(tot_fluxes eq max(tot_fluxes),ct)
-    best_ind=best_ind[0]
+      tot_flux=total(fopt[state.l_bins[i]:state.r_bins[i]])
+      ;no wide patches allowed.
+      if abs(state.l_bins[i]-state.r_bins[i]) gt 100 then return,-999.9
+      ;no bad fluxes allowed
+      if tot_flux le 0 then return,-999.9
+      n_good_lines++
+    endfor; nbins
   endif
   
-  LBIN1=state.l_bins[best_ind]
-  RBIN1=state.r_bins[best_ind]
-  
-  
-  temp=max(fopt[LBIN1:RBIN1],wsub)
-  Wavel_guess=state.wavel[wsub]
-  
-  ;check for case of only wide selections
-  if n_elements(fopt[LBIN1:RBIN1]) gt 100 then begin
-    linecol=-1
-    linename='???'
-    redshift=-999.9
-    print,'WARNING: ONLY WIDE SELECTIONS. NO Z DETERMINABLE'
-    print,'filtername ',filtername
-    print,'linename ','???'
-    print,'lineguess ',lineguess
-    print,'redshift ',redshift
-    print,'Wavel_guess ',0
-    print,'linecol ',linecol
-    return,redshift
-  endif
+  print,'there are '+ssi(n_good_lines)+' good lines'
   
   lineguess=0
   CASE z OF
     '1': begin
-      if filtername eq 'Y' then begin
-        linename='[OII]'
-        lineguess=linewavels[where(linenames eq '[OII]')]
-      endif else if filtername eq 'J' then begin
-        linename='OIII5008'
-        lineguess=linewavels[where(linenames eq '[OIII]')]
-      endif else if filtername eq 'H' then begin
-        linename='HA'
-        lineguess=linewavels[where(linenames eq 'Ha')]
-      endif else if filtername eq 'K' then begin
-        linename='??'
-        lineguess=0.0
-      endif
-    end
+      CASE filtername OF 
+      'Y': begin
+        linenames=[linenames[0]]
+        linewavels=[linewavels[0]]
+        end  
+      'J': begin
+        linenames=[linenames[1],linenames[2],linenames[3]]
+        linewavels=[linewavels[1],linewavels[2],linewavels[3]]
+        end  
+      'H': begin
+        linenames=[linenames[4],linenames[5]]
+        linewavels=[linewavels[4],linewavels[5]]
+        end  
+      'K': return,0 
+      endcase;filtername of
+      end;z of 1
     '2': begin
-      if filtername eq 'Y' then begin
-        linename='??'
-        lineguess=0.0
-      endif else if filtername eq 'J' then begin
-        linename='OII'
-        lineguess=linewavels[where(linenames eq '[OII]')]
-      endif else if filtername eq 'H' then begin
-        linename='OIII5008'
-        lineguess=linewavels[where(linenames eq '[OIII]')]
-      endif else if filtername eq 'K' then begin
-        linename='HA'
-        lineguess=linewavels[where(linenames eq 'Ha')]
-      endif
-    end
+      CASE filtername OF 
+      'Y': return,0
+      'J': begin
+        linenames=[linenames[0]]
+        linewavels=[linewavels[0]]
+        end  
+      'H': begin
+        linenames=[linenames[1],linenames[2],linenames[3]]
+        linewavels=[linewavels[1],linewavels[2],linewavels[3]]
+        end  
+      'K': begin
+        linenames=[linenames[4],linenames[5]]
+        linewavels=[linewavels[4],linewavels[5]]
+        end 
+      endcase;filtername of
+      end;z of 2
     '3': begin
-      if filtername eq 'Y' then begin
-        linename='??'
-        lineguess=0.0
-      endif else if filtername eq 'J' then begin
-        linename='??'
-        lineguess=0.0
-      endif else if filtername eq 'H' then begin
-        linename='OII'
-        lineguess=linewavels[where(linenames eq '[OII]')]
-      endif else if filtername eq 'K' then begin
-        linename='OIII5008'
-        lineguess=linewavels[where(linenames eq '[OIII]')]
-      endif
-    end
-  endcase
-  lineguess=lineguess[0]
+      CASE filtername OF 
+      'Y': return,0
+      'J': return,0 
+      'H': begin
+        linenames=[linenames[0]]
+        linewavels=[linewavels[0]]
+        end  
+      'K': begin
+        linenames=[linenames[1],linenames[2],linenames[3]]
+        linewavels=[linewavels[1],linewavels[2],linewavels[3]]
+        end 
+      endcase;filtername of
+    end;z of 3
+  endcase;z of
+  lineguess=reform(lineguess)
   
-  if lineguess ne 0 then redshift=(Wavel_guess-lineguess)/lineguess else redshift=0.0
-  linecol=round(avg([LBIN1,RBIN1]))
-  print,'z',z
-  print,'linename ',linename
-  print,'lineguess ',lineguess
-  print,'redshift ',redshift
-  print,'wavel guess ',Wavel_guess
-  print,'bin number ',best_ind
   
-  return,redshift
+  ;loop through the lines found above and fit them.
+  for line_num=0,n_good_lines-1 do begin
+    if line_num gt n_elements(linenames)-1 then return,0
+    print,'doing line number ',line_num+1
+    print,'this is',linenames[line_num]
+    print,'at ',linewavels[line_num]
+    new_wavel=linewavels[line_num]
+    new_name=linenames[line_num]
+    LBIN1=state.l_bins[line_num]
+    RBIN1=state.r_bins[line_num]
+    
+    ;fit this line!
+    lower=round((lbin1-5)>0)
+    upper=round((rbin1+5)<(n_elements(fopt)-1))
+    yfit=fopt[lower:upper]
+    yfiterr=fopterr[lower:upper]; error is SIGMA, not VARAIANCE.
+    yfiterr=yfiterr/max(yfit)
+    yfit=yfit/max(yfit)
+    xfit=wavel[lower:upper]
+    ;wl of best center guess
+    temp=max(yfit,maxindex)
+    xguess = xfit[maxindex]
+    print,xguess,' wavelength guess'
+    
+    nterms=4
+    pi =[{fixed:0, limited:[1,1], limits:[max(yfit)*0.6,max(yfit)*1.2]},$ ;peak value
+         {fixed:0, limited:[1,1], limits:[double(minmax(xfit))]},$ ;peak centroid
+         {fixed:0, limited:[0,0], limits:[0.D,0.D]},$ ;sigma
+         {fixed:0, limited:[0,0], limits:[0.D,0.D]}];,$ ;linear bkgnd term
+  ;       {fixed:0, limited:[0,0], limits:[0.D,0.D]}]  ;quadratic background term
+    estimates=[max(yfit),xguess,3.0,min(yfit)]
+    dummy=MPFITPEAK(xfit,yfit,$
+      coeff,nterms=nterms,error=yfiterr,sigma=gauss_sigma,/gaussian,$
+      estimates=estimates,parinfo=pi,status=status,chisq=chisq)
+    print,'estimates:',estimates
+    print,'fit status (1 is good) ' ,status
+    if status eq 1 then begin
+      redshift=(coeff[1]/new_wavel)-1.0
+      redshifterr=abs(((coeff[1]+gauss_sigma[1])/new_wavel)-1.0-redshift)
+      
+      if ~file_test(state.savepath+'00_redshift_catalog_bmep.txt') then $
+      forprint,maskname+' ',filtername+' ',slitname+' ',sss(abs(objnum))+' ',redshift,redshifterr,' '+new_name,new_wavel,coeff[1],$
+      textout=state.savepath+'00_redshift_catalog_bmep.txt',$
+      comment="# maskname filter slit ap_no z zerr linename restwave obswave", $
+      format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)' $
+      else begin
+        readcol,state.savepath+'00_redshift_catalog_bmep.txt',v1,v2,v3,v4,v5,v6,v7,v8,v9,format='A,A,A,A,F,F,A,F,F',/silent
+        
+        v1=[v1,maskname]
+        v2=[v2,filtername]
+        v3=[v3,slitname]
+        v4=[v4,sss(abs(objnum))]
+        v5=[v5,redshift]
+        v6=[v6,redshifterr]
+        v7=[v7,new_name]
+        v8=[v8,new_wavel]
+        v9=[v9,coeff[1]]
+  
+        forprint,v1,v2,v3,v4,v5,v6,v7,v8,v9,$
+          textout=state.savepath+'00_redshift_catalog_bmep.txt',comment="# maskname filter slit ap_no z zerr linename restwave obswave",$
+          format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
+        endelse
+      endif;status eq 1
+  endfor;linenum
+  
+  
+  return,0
   
 end
 
@@ -993,6 +1043,8 @@ FUNCTION bmep_KeyboardHandler, oWin, $
       overploterr=0 ;flag
       findautowidth=1 ;flag
       autoextractflag=1 ;flag
+      
+      usercomment='No Comment'
       
       ;normalize cause of errors.
       state.ydataerr=sqrt(state.ydataerr)/max(state.ydata) ; convert error to stddev
@@ -1150,7 +1202,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               ;exten 0
               header=bmep_make_hdr('',extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
                 gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-                wbyhand,cbyhand,mom1,mom2,slitloss,$
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,$
                 gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
                 gamp_err, glinear_err,bkgndl,bkgndr, /exten)
               writefits,state.savepath+fitsfilenm+'.1d.fits','',header
@@ -1158,7 +1210,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               ;exten 1
               header=bmep_make_hdr(flux_opt,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
                 gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-                wbyhand,cbyhand,mom1,mom2,slitloss,$
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,$
                 gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
                 gamp_err, glinear_err,bkgndl,bkgndr,/image)
               writefits,state.savepath+fitsfilenm+'.1d.fits',flux_opt,header,/append
@@ -1166,7 +1218,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               ;exten 2
               header=bmep_make_hdr(erropt,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
                 gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-                wbyhand,cbyhand,mom1,mom2,slitloss,$
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,$
                 gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
                 gamp_err, glinear_err,bkgndl,bkgndr,/image)
               writefits,state.savepath+fitsfilenm+'.1d.fits',erropt,header,/append
@@ -1174,7 +1226,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               ;exten 3
               header=bmep_make_hdr(flux,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
                 gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-                wbyhand,cbyhand,mom1,mom2,slitloss,$
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,$
                 gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
                 gamp_err, glinear_err,bkgndl,bkgndr,/image)
               writefits,state.savepath+fitsfilenm+'.1d.fits',flux,header,/append
@@ -1182,7 +1234,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               ;exten 4
               header=bmep_make_hdr(err,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
                 gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-                wbyhand,cbyhand,mom1,mom2,slitloss,$
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,$
                 gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
                 gamp_err, glinear_err,bkgndl,bkgndr,/image)
               writefits,state.savepath+fitsfilenm+'.1d.fits',err,header,/append
@@ -1190,7 +1242,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               ;exten 5
               header=bmep_make_hdr(state.ydata,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
                 gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-                wbyhand,cbyhand,mom1,mom2,slitloss,$
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,$
                 gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
                 gamp_err, glinear_err,bkgndl,bkgndr,/image,/no_wave_info)
               writefits,state.savepath+fitsfilenm+'.1d.fits',state.ydata,header,/append
@@ -1198,7 +1250,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               ;exten 6
               header=bmep_make_hdr(state.ydataerr,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
                 gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-                wbyhand,cbyhand,mom1,mom2,slitloss,$
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,$
                 gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
                 gamp_err, glinear_err,bkgndl,bkgndr,/image,/no_wave_info)
                 
@@ -1388,10 +1440,11 @@ endif
 ;print help sorted by functionality
 if key eq '?' then begin
   print,'Help sorted by functionality'
-  print,'---help options---'
+  print,'---help or other options---'
   print,'? - Help display sorted by functionality'
   print,'h - Help display sorted alphabetically'
   print,'0 - stop command for debugging'
+  print,'k - add a comment to the header'
   print
   print,'---Plotting options---'
   print,'F - Toggle on viewing the sky mask'
@@ -1452,6 +1505,7 @@ if key eq 'h' then begin
   print,'g - Toggle p extraction is fit to gaussian'
   print,'h - Help display sorted alphabetically'
   print,'i - Toggle flag to not automatically extract later'
+  print,'k - add a comment to the header'
   print,'m - Mark an object automatically (and do sky region)'
   print,'M - Change width for "m" fit'
   print,'n - Mark an object where the cursor is'
@@ -1480,7 +1534,13 @@ if key eq 'i' then begin
       print,'set to automatically extract.'
       endelse
   endif
-
+  
+;add a user comment
+if key eq 'k' then begin
+  print,'enter user comment (currently "'+usercomment+'"'
+  read,usercomment
+  endif
+  
 ;change the mwidth
 if key eq 'M' then begin
   print,mwidth
@@ -1850,7 +1910,7 @@ if key eq 'X' then begin
     
     
     ;define line names
-    linenames= ['Ha',    'NII', '[OII]','[OIII]','[OIII]2','Hb',    'SII','hgamma']
+    linenames= ['HA6565','NII6585','OII_dbl','OIII5008','OIII4960','HB4863','SII_dbl','HG4342']
     if state.vacuum eq 1 then $
       linewavels=[6564.614,6585.27,3728.48,5008.239,4960.295,4862.721,6718.29,4339.00]$;vacuum
       else $
@@ -1905,30 +1965,16 @@ if key eq 'X' then begin
         format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)' $
       else begin
       readcol,state.savepath+'00_redshift_catalog_bmep.txt',v1,v2,v3,v4,v5,v6,v7,v8,v9,format='A,A,A,A,F,F,A,F,F'
-      index=where(sss(v1) eq sss(maskname) and sss(v4) eq sss(slitname) $
-         and sss(v2) eq sss(filtername) and sss(v7) eq sss(new_name), ct)
-      if ct ge 1 then print,'OVERWRITING OLD REDSHIFT INFO'      
-      if ct ge 1 then begin
-        v1[index]=maskname
-        v2[index]=filtername
-        v3[index]=slitname
-        v4[index]=sss(abs(objnum))
-        v5[index]=redshift
-        v6[index]=redshifterr
-        v7[index]=new_name
-        v8[index]=new_wavel
-        v9[index]=coeff[1]
-      endif else begin
-        v1=[v1,maskname]
-        v2=[v2,filtername]
-        v3=[v3,slitname]
-        v4=[v4,sss(abs(objnum))]
-        v5=[v5,redshift]
-        v6=[v6,redshifterr]
-        v7=[v7,new_name]
-        v8=[v8,new_wavel]
-        v9=[v9,coeff[1]]
-      endelse
+      
+      v1=[v1,maskname]
+      v2=[v2,filtername]
+      v3=[v3,slitname]
+      v4=[v4,sss(abs(objnum))]
+      v5=[v5,redshift]
+      v6=[v6,redshifterr]
+      v7=[v7,new_name]
+      v8=[v8,new_wavel]
+      v9=[v9,coeff[1]]
       
       ;SORT THE LIST ->MASK ->filter -> SLIT
       index=bsort(v3)
@@ -1967,11 +2013,10 @@ if key eq 'X' then begin
       forprint,v1,v2,v3,v4,v5,v6,v7,v8,v9,$
         textout=state.savepath+'00_redshift_catalog_bmep.txt',comment="# maskname filter slit ap_no z zerr linename restwave obswave",$
         format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
-      index=where(sss(v1) eq sss(maskname) and sss(v3) eq sss(slitname),ct)
-      if ct ge 1 then $
-        forprint,v1[index],v2[index],v3[index],v4[index],v5[index],v6[index],v7[index],v8[index],v9[index],$
-          comment="# maskname filter slit ap_no z zerr linename restwave obswave",$
-          format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
+      index=where(sss(v1) eq sss(maskname) and sss(v3) eq sss(slitname),/null)
+      print,"      maskname   filter   slit  ap_no   z     zerr    linename    restwave    obswave"
+      forprint,v1[index],v2[index],v3[index],v4[index],v5[index],v6[index],v7[index],v8[index],v9[index],$
+        format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
     endelse ; file found
   endif;choice
 endif ;status eq 1
@@ -1990,10 +2035,12 @@ endif
 ;guess redshift
 IF key EQ 'Z' THEN BEGIN
 
-  ;            print,'there are ',state.n_bins,' number of bins'
+  print,'there are ',state.n_bins,' number of bins'
   FORWARD_FUNCTION bmep_guess_redshift
-  zguess=bmep_guess_redshift(state,wavel,fopt,linename=linename,linecol=linecol)
-  
+  zguess=bmep_guess_redshift(state,state.wavel,fopt,fopterr,objnum)
+  PRINT
+  print
+  print,'redshift guessing over.
 endif
 
 
@@ -2254,7 +2301,7 @@ end
 
 function bmep_make_hdr,data_make,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
     gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-    wbyhand,cbyhand,mom1,mom2,slitloss,$
+    wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,$
     gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, gamp_err, glinear_err,$
     bkgndl,bkgndr,exten=exten,image=image,no_wave_info=no_wave_info
 
@@ -2322,6 +2369,7 @@ sxaddpar, Header, 'COMMENT',' Exten 4: Boxcar extraction error bars'
 sxaddpar, Header, 'COMMENT',' Exten 5: Light profile'
 sxaddpar, Header, 'COMMENT',' Exten 6: Light profile error bars' 
 sxaddpar, Header, 'COMMENT',' Anything called a "flag" means 1=yes and 0=no'
+sxaddpar, Header, 'UCOMMENT',usercomment
 
 if keyword_set(no_wave_info) then begin
   sxaddpar,Header,'CRVAL1',1
