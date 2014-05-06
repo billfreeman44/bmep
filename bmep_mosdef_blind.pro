@@ -45,7 +45,7 @@ function bmep_blind_hdr,f,extrainfo1,extrainfo2,yexpect,width,$
 end
 
 
-pro bmep_mosdef_blind_extract,yexpect,width,ny,ptemp,sciimg,var_img, $
+pro bmep_mosdef_blind_extract,yexpect,width,ny,sciimg,var_img, $
     $ ;OUTPUTS
     f,ferr,fopt,fopterr,p
   f=[]
@@ -62,8 +62,7 @@ pro bmep_mosdef_blind_extract,yexpect,width,ny,ptemp,sciimg,var_img, $
   xarr_small=findgen(topint-bottomint+1)+bottomint ;create new xarr_small
   p=replicate(0.0,n_elements(sciimg[0,*]))
   bpm=replicate(1.0,n_elements(sciimg[0,*]))
-  p[xarr_small]=ptemp
-  if n_elements(xarr_small) ne n_elements(ptemp) then print,'ERROR: WRONG NUMBER OF ELEMENTS SOMEWHERE'
+  p[xarr_small]=replicate(1.0,n_elements(xarr_small))
   
   for j=0,n_elements(sciimg[*,0])-1 do begin
     f=[f,total(sciimg[j,bottomint:topint])]
@@ -148,7 +147,27 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
   !p.multi=[0,2,2]
   width=5
   
-  if not keyword_set(path_to_output) then path_to_output='~/mosfire/output/idl_output/2D' ; no trailing slash
+ ;set output to what is in the envoirnment variable
+  x=getenv('BMEP_MOSDEF_2D')
+  if x ne '' then path_to_output=x
+  ;default if no env found
+  if ~keyword_set(path_to_output) then path_to_output='~/mosfire/output/idl_output/2D/' ; trailing slash
+  
+  ;ensure that there is a '/' at the end of the path.
+  if strmid(path_to_output,strlen(path_to_output)-1) ne '/' then path_to_output=path_to_output+'/'
+  cd,path_to_output,current=original_dir
+  
+  ;get where to save output of extraction program
+  x=getenv('BMEP_MOSDEF_1D')
+  if x ne '' then savepath=x else begin
+    savepath=path_to_output+'/1d_extracted/'
+    ;create folder to extract to if it doesn't exist.
+    if ~bmep_DIR_EXIST(savepath) then spawn,'mkdir 1d_extracted'
+    endelse
+  ;ensure that there is a '/' at the end of the path.
+  if strmid(savepath,strlen(savepath)-1) ne '/' then savepath=savepath+'/'
+
+
   cd,path_to_output,current=original_dir
   
   ;parse folder into different masks!!
@@ -159,67 +178,64 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
   ;parse names
   masks=[]
   filters=[]
-  objects=[]
+  slitnames=[]
   
   for i=0,n_elements(filenames)-1 do begin
     substrings=strsplit(filenames[i],'.',/extract)
     if n_elements(substrings) eq 5 then begin
       masks=[masks,substrings[0]]
       filters=[filters,substrings[1]]
-      objects=[objects,substrings[2]]
+      slitnames=[slitnames,substrings[2]]
     endif
   end
   
-  savepath=path_to_output+'/1d_extracted/'
-  
   ;find 1d extractions of non-primary objects
-  print,'creating secondary obj info'
+  print,'creating obj info'
   spawn,'ls '+savepath+'*.1d.fits > tempfiles.txt'
   readcol,'tempfiles.txt',filenames1d,format='A',/silent
   spawn,'rm tempfiles.txt'
   
-  openw,lun,savepath+'00_be_info.txt',/get_lun
+  openw,lun,savepath+'00_blind_info.txt',/get_lun
   for i=0,n_elements(filenames1d)-1 do begin
-    data=readfits(filenames1d[i],hdr,exten_no=1,/silent)
+    hdr=headfits(filenames1d[i],exten=1)
     objnum=sxpar(hdr,'OBJNUM')
-    if objnum ne 1 and sxpar(hdr,'BLIND') ne 1 then begin
+    if sxpar(hdr,'BLIND') ne 1 then begin
       mask=sxpar(hdr,'MSKNM')
       filter=sxpar(hdr,'FILTNM')
       slit=sxpar(hdr,'SLITNM')
-      width=FLOAT(round(sxpar(hdr,'WIDTH')))
+      width=(sxpar(hdr,'WIDTH'))
       width_sigma=sxpar(hdr,'GWIDTH')
-      minw=float(sxpar(hdr,'MINW'))
-      if width_sigma lt minw then width_sigma=minw
+      minw=sxpar(hdr,'MINW')
       ypos=sxpar(hdr,'YPOS')
       yexpect=sxpar(hdr,'YEXPECT')
-      w_actual_squared=width_sigma*width_sigma-minw*minw
-      if wscale lt 1.0 then wscale=1.0
+      w_actual_squared=(width*width/(2.355^2) - minw*minw/(2.355^2))>0.0
       printf,lun,mask,filter,slit,objnum,width,$
-        w_actual_squared,ypos,yexpect, ypos-yexpect,format='(A10,A4,I10,I3,I3,F12.5,I4,F9.2,F9.2)'
+        w_actual_squared,ypos,yexpect, ypos-yexpect,format='(A10,A4,I10,I3,I3,F12.5,I4,F9.2,F9.2)' 
     endif
   endfor;n_ele filenames1d
   close,lun
   free_lun,lun
-  print,'done creating secondary obj info'
+  print,'done creating obj info'
+  
+;  stop
   
   
-  
-  
-  readcol,savepath+'00_be_info.txt',npmaskarr,npfilterarr,npslitarr,npobjnumarr,$
-    npwidtharr,w_actual_squared,npyposarr,npyexpectarr,npyshiftarr,$
+  readcol,savepath+'00_blind_info.txt',npmaskarr,npfilterarr,npslitarr,npobjnumarr,$
+    npwidtharr,w_actual_sqr_arr,npyposarr,npyexpectarr,npyshiftarr,$
     format="A,A,I,I,I,F,I,F,F"
     
     
   if norepeat eq 0 then PS_Start, Filename=savepath+'00_blind_comparison.ps',/quiet
   
-  for i=0,n_elements(objects)-1 do begin
-    slitname=objects[i]
+  for i=0,n_elements(slitnames)-1 do begin
+    slitname=slitnames[i]
     maskname=masks[i]
     filtername=filters[i]
     filename=maskname+'.'+filtername+'.'+slitname+'.2d.fits'
     
-    ;  print,filename
-    
+    index=where(npmaskarr eq  maskname and npslitarr eq slitname and npobjnumarr eq 1,ct)
+    w_actual_sqr=avg(w_actual_sqr_arr[index])>0.0
+
     ;read in files
     sciimg=readfits(filename,shdr, /SILENT,exten_no=1)
     sciimg=double(sciimg)
@@ -228,24 +244,16 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
     sciimg[index]=0.0
     
     ;calculate variance image
-    var_img=readfits(filename, /SILENT,exten_no=3)
-    
+    noise_img=readfits(filename, /SILENT,exten_no=3)
     ;clean image
-    index=where(var_img eq 99,/null)
+    index=where(finite(noise_img) eq 0,/null)
     sciimg[index]=0.0
-    var_img[index]=0.0
-    index=where(finite(var_img) eq 0,/null)
-    sciimg[index]=0.0
-    var_img[index]=0.0
-    index=where(var_img lt 0,ct,/null)
-    var_img=double(var_img)
-    var_img=var_img*var_img ;actually was sigma image
+    noise_img[index]=0.0
+    noise_img=double(noise_img)
+    var_img=noise_img*noise_img
     
     
-    ;calculate wavel.
-    wavel=(sxpar(shdr,'CRVAL1')+findgen(n_elements(sciimg[*,0]))*sxpar(shdr,'CDELT1'))
     ny=n_elements(sciimg[0,*])
-    nx=n_elements(sciimg[*,0])
     
     ;calculate where object SHOULD be!
     slitlistfile=path_to_output+'/00mask_info/'+maskname+'_SlitList.txt'
@@ -264,7 +272,7 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
       ;check if object is a star
       if abs(priorityarr[index]) eq 1 then isstar=1
       ;        isstar=0
-      readcol,path_to_output+'/1d_extracted/00_starinfo.txt',maskstar,$
+      readcol,savepath+'00_starinfo.txt',maskstar,$
         filtstar,objstar,yexpect_star,yactual_star,widthstar,sigmastar,/silent,format='A,A,A,F,F,F,F'
       index=where(maskstar eq maskname and filtstar eq filtername,ct)
       if ct ne 0 then begin
@@ -272,45 +280,11 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
         yshift=avg(yexpect_star[index] - yactual_star[index])
         yexpect=yexpect-yshift
         yexpect=round(yexpect)
-        width=fix(min(widthstar[index],sub))
-        starwidth=width
-        min_width=starwidth
+        width=(2.355)*sqrt(min(widthstar[index],sub)*min(widthstar[index],sub)/(2.355^2) + w_actual_sqr)
+        min_width=min(widthstar[index],sub)
         yposstar=yactual_star[index[sub]]
         starfile=maskname+'.'+filtername+'.'+objstar[index[sub]]+'.1d.fits'
         p=readfits('1d_extracted/'+starfile,exten_no=5,/silent)
-        
-        ;lower extraction limit
-        bottomint=fix(yposstar-width)
-        if bottomint lt 0 then bottomint=0
-        
-        ;upper extraction limit
-        topint=fix(yposstar+width)
-        if topint gt n_elements(p)-1 then topint=n_elements(p)-1
-        
-        ;calculate array to extract
-        xarr_small=findgen(topint-bottomint+1)+bottomint
-        xarr_big  =findgen(n_elements(p))
-        
-        index=where(xarr_big lt bottomint or xarr_big gt topint,ct)
-        if ct ne 0 then p[index]=0.0
-        
-        gresult=MPFITPEAK(double(xarr_big),double(p),$
-          coeff,nterms=3,/gaussian)
-        p=gresult
-        
-        ;set p to 0 outside the width of extraction.
-        index=where(xarr_big lt bottomint or xarr_big gt topint,/null)
-        p[index]=0.0
-        
-        ;normalize p
-        index=where(p lt 0,/null)
-        p[index]=0.0
-        if total(p) eq 0 then print,'ERROR: P IS 0 EVERYWHERE'
-        p=p/total(p)
-        
-        ;create temp p of just the gaussian.
-        ptemp=p[xarr_small] ; uses OLD xarr_small
-        
         
       endif else begin
         print,'no matching stars found ',maskname,' ',filtername
@@ -325,7 +299,7 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
         endif;fixing objects 
       
       ;      print,'slitname, yexpect, midpoint, yshift, width'
-      print,maskname,' ', filtername,' ', slitname,' ',1, yexpect, midpoint, yshift, width
+      print,maskname,' ', filtername,' ', slitname,' ',1, yexpect, midpoint, yshift,min_width, width
       
     endif else print,'no object found in the slitlist file?!?!?!?'
     
@@ -359,36 +333,17 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
       ssi(isstar), $
       ssf(yexpect) $
       ]
-    ;comments
-    extrainfo3=[$
-      ' ',$
-      ' ',$
-      ' ',$
-      ' ',$
-      'total exposure time (seconds)',$
-      'name of file',$
-      'name of mask',$
-      'name of filter',$
-      'name of slit', $
-      'Flag if is a star', $
-      'expected y position' $
-      ]
 
-      
     yexpect=float(yexpect)
     if yexpect ne -1 then begin
     
-      if slitname eq 6187 then yexpect=yexpect-5
-      if slitname eq 1002 then yexpect=yexpect-5
-      
-      
-      bmep_mosdef_blind_extract,yexpect,width,ny,ptemp,sciimg,var_img, $
-        $ ;OUTPUTS
-        f,ferr,fopt,fopterr,p
-      objnum=1
-      bmep_mosdef_blind_save,savepath,maskname,filtername,slitname,$
-        objnum,extrainfo1,extrainfo2,yexpect,width,isstar,$
-        f,ferr,fopt,fopterr,p,min_width
+;      bmep_mosdef_blind_extract,yexpect,width,ny,sciimg,var_img, $
+;        $ ;OUTPUTS
+;        f,ferr,fopt,fopterr,p
+;      objnum=1
+;      bmep_mosdef_blind_save,savepath,maskname,filtername,slitname,$
+;        objnum,extrainfo1,extrainfo2,yexpect,width,isstar,$
+;        f,ferr,fopt,fopterr,p,min_width
         
       ;plot a comparison if needed...
       if norepeat eq 0 then begin
@@ -408,52 +363,40 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
       ;search for np objects
       ;      ,npmaskarr,npfilterarr,npslitarr,npobjnumarr,$
       ;      npwidtharr,npwscalearr,npyposarr,npyexpectarr,npyshiftarr,
-      index=where(npmaskarr eq maskname and npslitarr eq slitname,ct)
-      if ct gt 0 then begin
-        ;create array of objects found.
-        npobjnums=rem_dup(npobjnumarr[index])
-        for k=2,6 do begin
-          index2=where(npobjnumarr[index] eq k,ct)
-          if ct ne 0 then begin ;message,'insanity. probably an object #3 is there with no object #2'
-            objnum=k
-            npyexpect=round(yexpect+avg(npyshiftarr[index[index2]]))
-            npwidth=round(starwidth*avg(npwscalearr[index[index2]]))
-            
-            print,maskname,' ', filtername,' ', slitname,' ',k, npyexpect, midpoint, yshift, npwidth
-            
-            ;calculate new ptemp. needed because widths are different.
-            bottomint=fix(npyexpect-npwidth)
-            if bottomint lt 0 then bottomint=0
-            topint=fix(npyexpect+npwidth)
-            if topint gt ny-1 then topint=ny-1
-            if topint-bottomint+1 lt 5 then goto,skipthisnp
-            xarr=findgen(topint-bottomint+1)
-            
-            params=[1.0,float(max(xarr)/2.0),npwidth/(2.0*SQRT(2.0*ALOG(2.0)))]
-            ptemp=gaussian(xarr,params)
-            ptemp=ptemp/total(ptemp)
-            ;            print,ptemp
-            bmep_mosdef_blind_extract,$
-              npyexpect,$ ; yposition
-              npwidth,$ ; width
-              ny,ptemp,sciimg,var_img,f,ferr,fopt,fopterr,p
-              
-            bmep_mosdef_blind_save,savepath,maskname,filtername,slitname,$
-              objnum,extrainfo1,extrainfo2,npyexpect,npwidth,0,$
-              f,ferr,fopt,fopterr,p,min_width
-              
-            suffix='.'+ssi(objnum)
-            if file_test(savepath+maskname+'.'+filtername+'.'+slitname+suffix+'.1d.fits')  then begin
-              data=readfits(savepath+maskname+'.'+filtername+'.'+slitname+suffix+'.1d.fits',shdr,exten_no=5,/silent)
-              cgplot,data,title=maskname+'.'+filtername+'.'+slitname+suffix+' y profile',ytitle='P'
-              cgplot,(p/max(p))*max(data),color='red',/overplot
-            endif
-            
-            
-          endif;ct ne 0
-          skipthisnp:
-        endfor
-      endif ;else print,'no np objects' ;ct gt 0
+;      index=where(npmaskarr eq maskname and npslitarr eq slitname and npobjnumarr gt 1,ct)
+;      if ct gt 0 then begin
+;        ;create array of objects found.
+;        npobjnums=rem_dup(npobjnumarr[index])
+;        for k=2,6 do begin
+;          index2=where(npobjnumarr[index] eq k,ct)
+;          if ct ne 0 then begin ;message,'insanity. probably an object #3 is there with no object #2'
+;            objnum=k
+;            npyexpect=round(yexpect+avg(npyshiftarr[index[index2]]))
+;            npwidth=round(min_width*avg(npwscalearr[index[index2]]))
+;            
+;            print,maskname,' ', filtername,' ', slitname,' ',k, npyexpect, midpoint, yshift, npwidth
+;            
+;            bmep_mosdef_blind_extract,$
+;              npyexpect,$ ; yposition
+;              npwidth,$ ; width
+;              ny,sciimg,var_img,f,ferr,fopt,fopterr,p
+;              
+;            bmep_mosdef_blind_save,savepath,maskname,filtername,slitname,$
+;              objnum,extrainfo1,extrainfo2,npyexpect,npwidth,0,$
+;              f,ferr,fopt,fopterr,p,min_width
+;              
+;            suffix='.'+ssi(objnum)
+;            if file_test(savepath+maskname+'.'+filtername+'.'+slitname+suffix+'.1d.fits')  then begin
+;              data=readfits(savepath+maskname+'.'+filtername+'.'+slitname+suffix+'.1d.fits',shdr,exten_no=5,/silent)
+;              cgplot,data,title=maskname+'.'+filtername+'.'+slitname+suffix+' y profile',ytitle='P'
+;              cgplot,(p/max(p))*max(data),color='red',/overplot
+;            endif
+;            
+;            
+;          endif;ct ne 0
+;          skipthisnp:
+;        endfor
+;      endif ;else print,'no np objects' ;ct gt 0
     ;      stop
     endif ; yexpect -1
   ;    endif ; NOREPEAT and file test

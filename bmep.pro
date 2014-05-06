@@ -3173,7 +3173,7 @@ pro bmep_mosdef_getinfo
   
   
   
-  openw,lun,'00_extract_info.txt',/get_lun
+  openw,lun,savepath+'00_extract_info.txt',/get_lun
   printf,lun,'mask filter slit-#[*] width[*](starwidth) ypos yposdifference[!!!]'
   printf,lun,'* after object number means this is the STAR'
   printf,lun,'* after width means the width was edited by HAND'
@@ -3212,10 +3212,10 @@ pro bmep_mosdef_getinfo
       
     print,     maskarr[i],filtarr[i],slitarr[i],objnumarr[i],$
       widtharr[i],minwarr[I],yposarr[i],yposarr[i]-yexpectarr[i],$
-      format='(A7,A2,I8,"-",I1,"'+suffix+'",I3,"'+suffix2+'(",I1,") ",I3,F7.1,"'+suffix3+'")
+      format='(A7,A2,I8,"-",I1,"'+suffix+'",F7.2,"'+suffix2+'(",F7.2,") ",F7.2,F7.1,"'+suffix3+'")
     printf,lun,maskarr[i],filtarr[i],slitarr[i],objnumarr[i],$
       widtharr[i],minwarr[I],yposarr[i],yposarr[i]-yexpectarr[i],$
-      format='(A7,A2,I8,"-",I1,"'+suffix+'",I3,"'+suffix2+'(",I1,") ",I3,F7.1,"'+suffix3+'")
+      format='(A7,A2,I8,"-",I1,"'+suffix+'",F7.2,"'+suffix2+'(",F7.2,") ",F7.2,F7.1,"'+suffix3+'")
   ;  stop
   endfor
   index=where(wbyhandarr eq 1)
@@ -3225,6 +3225,7 @@ pro bmep_mosdef_getinfo
   free_lun,lun
   
   cd,original_dir
+  print,'program over'
 end
 
 
