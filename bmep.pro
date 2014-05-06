@@ -286,7 +286,7 @@ end
 ;
 pro bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername,wavel,savepath,$
     revisevar=revisevar,extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=savetext,$
-    monitorfix=monitorfix
+    monitorfix=monitorfix,vacuum=vacuum
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   if ~keyword_set(extrainfo1) then extrainfo1=['0']
@@ -294,6 +294,7 @@ pro bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername
   if ~keyword_set(extrainfo3) then extrainfo3=['0']
   if ~keyword_set(savetext) then savetext=0
   if ~keyword_set(monitorfix) then monitorfix=0
+  if ~keyword_set(vacuum) then vacuum=0
   !except=2
   
   ;check version number
@@ -319,7 +320,7 @@ pro bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername
     ydata:replicate(0.D,n_elements(sciimg[0,*])),ydataerr:replicate(0.D,n_elements(sciimg[0,*])),data:sciimg,$
     slitname:slitname+'_'+filtername,wavel:wavel,savepath:savepath,var_img:var_img,revisevar:revisevar,$
     raw_slitname:slitname,extrainfo1:extrainfo1,extrainfo2:extrainfo2,extrainfo3:extrainfo3,$
-    savetext:savetext,cont_mode:0,monitorfix:monitorfix,$
+    savetext:savetext,cont_mode:0,monitorfix:monitorfix,vacuum:vacuum,$
     stats_mode:0,n_bins:0,l_bins:[0,0,0,0,0,0,0,0,0,0,0],r_bins:[0,0,0,0,0,0,0,0,0,0,0]}
   im1.window.MOUSE_DOWN_HANDLER='bmep_MouseDown'
   im1.window.MOUSE_UP_HANDLER='bmep_MouseUp'
@@ -444,7 +445,7 @@ pro bmep_extraction,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
   ;double check that the extraction ranges are actually the same.
   if min(xarr_small) ne bottomint then print,'WARNING, THE EXTRACTION RANGES ARE DIFFERENT.'
   if max(xarr_small) ne topint    then print,'WARNING, THE EXTRACTION RANGES ARE DIFFERENT.'
-  ;PRINT,'Extracting from ',bottomint,' to ',topint,'    ',n_elements(xarr_small),' elements'
+  PRINT,'Extracting from ',bottomint,' to ',topint,'    ',n_elements(xarr_small),' elements'
   
   ;STEP2 (steps from horne 1986 extraction paper... step 1 was flatfielding)
   variance=state.var_img
@@ -727,37 +728,32 @@ function bmep_find_p,state,bkgndl,bkgndr,order,bottomint,topint,printp,fitgaussp
   ;normalize
   if total(p) ne 0 then p=p/total(p)
   
-  ;print if desired
-  if printp then print,'p'
-  if printp then print,p
-  if printp then print
-  
   ;fit p profile to a gaussian if desired
   if fitgaussp then begin
     ;gresult=gaussfit(double(xarr_big),double(p),nterms=3)
     gresult=MPFITPEAK(double(xarr_big[bottomint:topint]),double(p[bottomint:topint]),$
-      coeff,nterms=3,/gaussian)
-    p[bottomint:topint]=gresult
+      coeff,nterms=3,/gaussian,status=status)
+    if staus eq 1 then p[bottomint:topint]=gresult
     
     ;set p to 0 outside the width of extraction.
-    index=where(xarr_big lt bottomint or xarr_big gt topint,ct)
-    if ct ne 0 then p[index]=0.0
+    index=where(xarr_big lt bottomint or xarr_big gt topint,/null)
+    p[index]=0.0
     
     ;normalize p
-    index=where(p lt 0,ct)
-    if ct gt 0 then p[index]=0.0
+    index=where(p lt 0,/null)
+    p[index]=0.0
     if total(p) ne 0 then p=p/total(p)
     
     
-    ;print if desired
-    if printp then print,'pgauss'
-    if printp then print,p
-    if printp then print
   endif
   
   ;plot if desired
   if plotp then zzzzzz=plot(p/max(p))
   
+  ;print if desired
+  if printp then print,'pgauss'
+  if printp then print,p
+  if printp then print
   ;return
   return,p
 end
@@ -1479,11 +1475,11 @@ if key eq 'i' then begin
   if autoextractflag eq 1 then BEGIN
     autoextractflag=0
     print,'set to NOT automatically extract.'
-  endif else begin
-    autoextractflag=1
-    print,'set to automatically extract.'
-  endelse
-endif
+    endif else begin
+      autoextractflag=1
+      print,'set to automatically extract.'
+      endelse
+  endif
 
 ;change the mwidth
 if key eq 'M' then begin
@@ -1494,7 +1490,7 @@ if key eq 'M' then begin
   mwidth=abs(mwidth)
   if round(mwidth) ne mwidth then print,'why isnt the mwidth an integer'
   mwidth=round(mwidth)
-endif
+  endif
 
 ;fit a gaussian and center on profile
 if key eq 'm' then begin
@@ -1504,10 +1500,11 @@ if key eq 'm' then begin
     xpos = index
     endif
   
-  lower=round(xpos-mwidth)
-  if lower lt 0 then lower = 0
-  upper=round(xpos+mwidth)
-  if upper ge n_elements(state.ydata) then upper = n_elements(state.ydata)-1
+  ;calc bounds
+  lower=round(xpos-mwidth)>0
+  upper=round(xpos+mwidth)<(n_elements(state.ydata)-1)
+  
+  ;calc data  to fit.
   yfit=state.ydata[lower:upper]
   yfiterr=state.ydataerr[lower:upper]; error is SIGMA, not VARAIANCE.
   nterms=4
@@ -1560,8 +1557,8 @@ if key eq 'm' then begin
       chisq=chisq/float(n_elements(yfit)-1.0)
       
       
-      centerarr=fix([centerarr,round(coeff[1])])
-      widtharr=round([widtharr,fwhm_fit])
+      centerarr=[centerarr,coeff[1]]
+      widtharr=[widtharr,fwhm_fit]
       gausschiarr=[gausschiarr,chisq]
       wbyhand=[wbyhand,0]
       cbyhand=[cbyhand,0]
@@ -1596,8 +1593,8 @@ endif ; key eq m
 if key eq 'n' then begin
   cursor,xpos,ypos,/nowait
   if xpos gt 0 and xpos lt n_elements(state.ydata) then begin
-    centerarr=[centerarr,fix(xpos)]
-    widtharr=[widtharr,fix(default_width)]
+    centerarr=[centerarr,round(xpos)]
+    widtharr=[widtharr,round(default_width)]
     gausschiarr=[gausschiarr,-1.0]
     wbyhand=[wbyhand,1]
     cbyhand=[cbyhand,1]
@@ -2986,7 +2983,7 @@ end
 
 
 ;6544 7428m
-pro bmep_mosdef_getinfo,doblind=doblind
+pro bmep_mosdef_getinfo
   !except=2 ;see division by zero errors instantly.
   astrolib
   
@@ -3718,7 +3715,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
         
       bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername,wavel,savepath,$
         revisevar=0,extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=0,$
-        monitorfix=monitorfix
+        monitorfix=monitorfix,vacuum=1
       
 ;      cghistoplot,snrimg,xr=[0,15],binsize=0.2,ytitle='SIGNAL TO NOISE RATIO',TITLE=MASKNAME+FILTERNAME+SLITNAME
 ;      stop
@@ -3736,7 +3733,7 @@ end
 
 
 
-pro bmep_mosdef_new,path_to_output=path_to_output
+pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   !except=2 ;see division by zero errors instantly.
@@ -3847,7 +3844,7 @@ pro bmep_mosdef_new,path_to_output=path_to_output
   ;FIND ALL THE STARS!!!
   priority_arr=[]
   for i=0,n_elements(objects)-1 do begin
-    hdr=headfits(maskname+filtername+objects[i]+'.2D.fits',1)
+    hdr=headfits(maskname+'.'+filtername+'.'+objects[i]+'.2D.fits',exten=1)
     priority_arr=[priority_arr,sxpar(hdr,'PRIORITY')]
     endfor
   if choice eq n_elements(objects)+1 then begin
@@ -3877,9 +3874,9 @@ pro bmep_mosdef_new,path_to_output=path_to_output
       ;calculate variance image
       noise_img=readfits(filename, /SILENT,exten_no=4)
       ;clean image
-      index=where(noise_img eq 99,/null)
-      sciimg[index]=0.0
-      noise_img[index]=0.0
+;      index=where(noise_img eq 99,/null)
+;      sciimg[index]=0.0
+;      noise_img[index]=0.0
       index=where(finite(noise_img) eq 0,/null)
       sciimg[index]=0.0
       noise_img[index]=0.0
@@ -3948,7 +3945,7 @@ pro bmep_mosdef_new,path_to_output=path_to_output
       big_img=findgen(nx,(ny*2))
       big_img[*,ny*0:ny*1-1]=bytscl(sciimg,top=255,/NAN,$
         min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))   ;science img
-      big_img[*,ny*3:ny*4-1]=bytscl(snr2sigCut,top=255,/NAN,$
+      big_img[*,ny*1:ny*2-1]=bytscl(snr2sigCut,top=255,/NAN,$
         min=0.0,max=3.5)   ;snr img
         
         
@@ -3958,7 +3955,6 @@ pro bmep_mosdef_new,path_to_output=path_to_output
       isstar=-1
       minwidth=-1
       yshift=0.0
-      if ct eq 1 then begin
         pixscale=0.1799
         midpoint=ny/2.0
         yexpect=midpoint+sxpar(shdr,'OFFSET')/pixscale
@@ -3974,14 +3970,11 @@ pro bmep_mosdef_new,path_to_output=path_to_output
             minwidth=min(widthstar[index])
           endif else print,'no matching stars found ',maskname,' ',filtername
         endelse ;if isstar
-        
         if isstar eq 1 and choice eq n_elements(objects) then goto, no_do_image
         print,'slitname, yexpect, midpoint, yshift, minwidth'
         print,slitname, yexpect, midpoint, yshift, minwidth
-        
         yexpect=yexpect-yshift
         PRINT,'new yexpect:',yexpect
-      endif else print,'no object found in the slitlist file?!?!?!?'
       
       ;draw white line
       big_img[*,yexpect]=255
@@ -4038,7 +4031,8 @@ pro bmep_mosdef_new,path_to_output=path_to_output
         ]
         
       bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername,wavel,savepath,$
-        revisevar=0,extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=0
+        revisevar=0,extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=0,$
+        vacuum=1,monitorfix=monitorfix
       
 ;      cghistoplot,snrimg,xr=[0,15],binsize=0.2,ytitle='SIGNAL TO NOISE RATIO',TITLE=MASKNAME+FILTERNAME+SLITNAME
 ;      stop
