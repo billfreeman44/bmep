@@ -3068,10 +3068,9 @@ end
 pro bmep_mosdef_getinfo
   !except=2 ;see division by zero errors instantly.
   astrolib
+  savepath=getenv('BMEP_MOSDEF_1D')
   
-  if not keyword_set(path_to_output) then path_to_output=$
-    '~/mosfire/output/idl_output/2D/1d_extracted' ; no trailing slash
-  cd,path_to_output,current=original_dir
+  cd,savepath,current=original_dir
   
   spawn,'ls *.1d.fits > filenames.txt'
   readcol,'filenames.txt',filenames,format='A'
@@ -3092,7 +3091,7 @@ pro bmep_mosdef_getinfo
   for i=0,n_elements(filenames)-1 do begin
     data=readfits(filenames[i],hdr,exten_no=1,/silent)
     substrings=strsplit(filenames[i],'.',/extract)
-    if substrings[0] ne 'blind' then begin
+    if n_elements(substrings) eq 5 or n_elements(substrings) eq 6 then begin
       maskarr=[maskarr,sxpar(hdr,'MSKNM')]
       filtarr=[filtarr,sxpar(hdr,'FILTNM')]
       slitarr=[slitarr,sxpar(hdr,'SLITNM')]
