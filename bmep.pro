@@ -733,7 +733,7 @@ function bmep_find_p,state,bkgndl,bkgndr,order,bottomint,topint,printp,fitgaussp
     ;gresult=gaussfit(double(xarr_big),double(p),nterms=3)
     gresult=MPFITPEAK(double(xarr_big[bottomint:topint]),double(p[bottomint:topint]),$
       coeff,nterms=3,/gaussian,status=status)
-    if staus eq 1 then p[bottomint:topint]=gresult
+    if status eq 1 then p[bottomint:topint]=gresult
     
     ;set p to 0 outside the width of extraction.
     index=where(xarr_big lt bottomint or xarr_big gt topint,/null)
@@ -1535,8 +1535,7 @@ if key eq 'm' then begin
     print,'2xfwhm   : ',fwhm_fit
     print,'r-chisqr : ',chisq/float(n_elements(yfit)-1.0)
     if coeff[1] gt 0 and coeff[1] lt n_elements(state.ydata) then begin
-      ; fix rounding issues
-      fwhm_fit=round(fwhm_fit)
+
       
       ;check min width
       index=where(state.extrainfo1 eq 'MINW',ct)
@@ -1544,7 +1543,7 @@ if key eq 'm' then begin
         minw=state.extrainfo2[index[0]]
         print,'minw is ',minw
         print,'fwhmx2 is ',fwhm_fit
-        if minw gt 0 and fwhm_fit lt minw then fwhm_fit=minw
+        if minw gt 0 and fwhm_fit le minw then fwhm_fit=minw
         print,'fwhmx2 is ',fwhm_fit,' after minw correction'
       endif
       
@@ -1559,13 +1558,14 @@ if key eq 'm' then begin
       
       centerarr=[centerarr,coeff[1]]
       widtharr=[widtharr,fwhm_fit]
+      print,'centerarr:',centerarr
+      print,'widtharr:',widtharr
       gausschiarr=[gausschiarr,chisq]
       wbyhand=[wbyhand,0]
       cbyhand=[cbyhand,0]
       slitloss=[slitloss,bmep_calc_slitloss(coeff[2])]
       gwidth=[gwidth,coeff[2]]
       gcenter=[gcenter,coeff[1]]
-      print,gcenter
       gamp=[gamp,coeff[0]]
       glinear=[glinear,coeff[3]]
       gwidth_err=[gwidth_err,gauss_sigma[2]]
@@ -1806,8 +1806,7 @@ if key eq 'X' then begin
   endif ; backwards
   xr=[leftxpos,rightxpos]
   
-  ;wl of best center guess
-  xpos = state.wavel[nearest_to(state.wavel,avg(xr))]
+
   
   lower=round(nearest_to(state.wavel,leftxpos))
   upper=round(nearest_to(state.wavel,rightxpos))
@@ -1816,22 +1815,28 @@ if key eq 'X' then begin
   yfiterr=yfiterr/max(yfit)
   yfit=yfit/max(yfit)
   xfit=state.wavel[lower:upper]
-  nterms=4
+  ;wl of best center guess
+  temp=max(yfit,maxindex)
+  xpos = xfit[maxindex]
+  print,xpos,' wavelength guess'
+  
   
   plot,xfit,yfit
   
-  
-  pi =[{fixed:0, limited:[1,1], limits:[min(yfit),max(yfit)*1.2]},$ ;peak value
+  nterms=4
+  pi =[{fixed:0, limited:[1,1], limits:[max(yfit)*0.6,max(yfit)*1.2]},$ ;peak value
     {fixed:0, limited:[1,1], limits:[double(xr)]},$ ;peak centroid
     {fixed:0, limited:[0,0], limits:[0.D,0.D]},$ ;sigma
     {fixed:0, limited:[0,0], limits:[0.D,0.D]}];,$ ;linear bkgnd term
   ;{fixed:0, limited:[0,0], limits:[0.D,0.D]}]  ;quadratic background term
-  estimates=[max(yfit),xpos,2.0,min(yfit)]
+  estimates=[max(yfit),xpos,3.0,min(yfit)]
   oplot,xfit,yfit,color=255.+255.*255.
+  oplot,xfit,gaussian(xfit,estimates)
   dummy=MPFITPEAK(xfit,yfit,$
     coeff,nterms=nterms,error=yfiterr,sigma=gauss_sigma,/gaussian,$
     estimates=estimates,parinfo=pi,status=status,chisq=chisq)
   print,'fit status (1 is good) ' ,status
+  wait,3
   if status eq 1 or status eq 3 then begin
     oplot,xfit,dummy,color=245
     oplot,[coeff[1],coeff[1]],minmax(yfit)
@@ -1888,7 +1893,7 @@ if key eq 'X' then begin
       index=WHERE(extrainfo1 eq 'MSKNM',ct)
       maskname=extrainfo2[index]
       index=WHERE(extrainfo1 eq 'FILTNM',ct)
-      flitername=extrainfo2[index]
+      filtername=extrainfo2[index]
       index=WHERE(extrainfo1 eq 'SLITNM',ct)
       slitname=extrainfo2[index]
       
@@ -1959,14 +1964,14 @@ if key eq 'X' then begin
       v8=v8[index]
       v9=v9[index]
       
-      forprint,v1+' ',v2+' ',v3+' ',v4,' '+v5,v6,' '+v7+' ',v8,v9,$
+      forprint,v1,v2,v3,v4,v5,v6,v7,v8,v9,$
         textout=state.savepath+'00_redshift_catalog_bmep.txt',comment="# maskname filter slit ap_no z zerr linename restwave obswave",$
-        format='(A20,A14,F10.6,F13.8,A12,F11.3,F11.3)'
+        format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
       index=where(sss(v1) eq sss(maskname) and sss(v3) eq sss(slitname),ct)
       if ct ge 1 then $
-        forprint,v1[index]+' ',v2[index]+' ',v3[index]+' ',v4[index],' '+v5[index],v6[index],' '+v7[index]+' ',v8[index],v9[index],$
+        forprint,v1[index],v2[index],v3[index],v4[index],v5[index],v6[index],v7[index],v8[index],v9[index],$
           comment="# maskname filter slit ap_no z zerr linename restwave obswave",$
-          format='(A20,A14,F10.6,F13.8,A12,F11.3,F11.3)'
+          format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
     endelse ; file found
   endif;choice
 endif ;status eq 1
@@ -4731,7 +4736,7 @@ pro bmep,path_to_output=path_to_output
           extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=0
         
       endif ; if files exist
-    endfor; flitername arr
+    endfor; filtername arr
   endfor ; choicearr
   
   
