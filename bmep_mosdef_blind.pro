@@ -53,10 +53,8 @@ pro bmep_mosdef_blind_extract,yexpect,width,ny,sciimg,var_img, $
   fopt=[]
   fopterr=[]
   
-  bottomint=fix(yexpect-width)
-  if bottomint lt 0 then bottomint=0
-  topint=fix(yexpect+width)
-  if topint gt ny-1 then topint=ny-1
+  bottomint=round(yexpect-width)>0
+  topint=round(yexpect+width)<(ny-1)
   
   ;shift p using magic...
   xarr_small=findgen(topint-bottomint+1)+bottomint ;create new xarr_small
@@ -363,19 +361,17 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
       ;search for np objects
       ;      ,npmaskarr,npfilterarr,npslitarr,npobjnumarr,$
       ;      npwidtharr,npwscalearr,npyposarr,npyexpectarr,npyshiftarr,
-;      index=where(npmaskarr eq maskname and npslitarr eq slitname and npobjnumarr gt 1,ct)
-;      if ct gt 0 then begin
-;        ;create array of objects found.
-;        npobjnums=rem_dup(npobjnumarr[index])
-;        for k=2,6 do begin
-;          index2=where(npobjnumarr[index] eq k,ct)
-;          if ct ne 0 then begin ;message,'insanity. probably an object #3 is there with no object #2'
-;            objnum=k
-;            npyexpect=round(yexpect+avg(npyshiftarr[index[index2]]))
-;            npwidth=round(min_width*avg(npwscalearr[index[index2]]))
-;            
-;            print,maskname,' ', filtername,' ', slitname,' ',k, npyexpect, midpoint, yshift, npwidth
-;            
+      index=where(npmaskarr eq maskname and npslitarr eq slitname and npobjnumarr gt 1,ct)
+      if ct gt 0 then begin
+        for k=2,6 do begin
+          index2=where(npobjnumarr[index] eq k,ct)
+          if ct ne 0 then begin ;message,'insanity. probably an object #3 is there with no object #2'
+            objnum=k
+            npyexpect=round(yexpect+avg(npyshiftarr[index[index2]]))
+            npwidth=(2.355)*sqrt(min_width*min_width/(2.355^2) + avg(w_actual_sqr_arr[index[index2]]))
+            
+            print,maskname,' ', filtername,' ', slitname,' ',k, npyexpect, midpoint, yshift, min_width, npwidth
+            
 ;            bmep_mosdef_blind_extract,$
 ;              npyexpect,$ ; yposition
 ;              npwidth,$ ; width
@@ -384,19 +380,17 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
 ;            bmep_mosdef_blind_save,savepath,maskname,filtername,slitname,$
 ;              objnum,extrainfo1,extrainfo2,npyexpect,npwidth,0,$
 ;              f,ferr,fopt,fopterr,p,min_width
-;              
-;            suffix='.'+ssi(objnum)
+              
+            suffix='.'+ssi(objnum)
 ;            if file_test(savepath+maskname+'.'+filtername+'.'+slitname+suffix+'.1d.fits')  then begin
 ;              data=readfits(savepath+maskname+'.'+filtername+'.'+slitname+suffix+'.1d.fits',shdr,exten_no=5,/silent)
 ;              cgplot,data,title=maskname+'.'+filtername+'.'+slitname+suffix+' y profile',ytitle='P'
 ;              cgplot,(p/max(p))*max(data),color='red',/overplot
 ;            endif
-;            
-;            
-;          endif;ct ne 0
-;          skipthisnp:
-;        endfor
-;      endif ;else print,'no np objects' ;ct gt 0
+            
+          endif; ct ne 0
+        endfor; k
+      endif ; else print,'no np objects' ;ct gt 0
     ;      stop
     endif ; yexpect -1
   ;    endif ; NOREPEAT and file test
