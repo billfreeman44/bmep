@@ -798,6 +798,7 @@ end
 
 
 function bmep_guess_redshift,state,wavel,fopt,fopterr,objnum,linename=linename,linecol=linecol
+  if n_elements(fopt) eq 0 then return,0
   print
   print
   print
@@ -853,8 +854,8 @@ function bmep_guess_redshift,state,wavel,fopt,fopterr,objnum,linename=linename,l
         linewavels=[linewavels[1],linewavels[2],linewavels[3]]
         end  
       'H': begin
-        linenames=[linenames[4],linenames[5]]
-        linewavels=[linewavels[4],linewavels[5]]
+        linenames=[linenames[5],linenames[6]]
+        linewavels=[linewavels[5],linewavels[6]]
         end  
       'K': return,0 
       endcase;filtername of
@@ -871,8 +872,8 @@ function bmep_guess_redshift,state,wavel,fopt,fopterr,objnum,linename=linename,l
         linewavels=[linewavels[1],linewavels[2],linewavels[3]]
         end  
       'K': begin
-        linenames=[linenames[4],linenames[5]]
-        linewavels=[linewavels[4],linewavels[5]]
+        linenames=[linenames[5],linenames[6]]
+        linewavels=[linewavels[5],linewavels[6]]
         end 
       endcase;filtername of
       end;z of 2
@@ -955,6 +956,12 @@ function bmep_guess_redshift,state,wavel,fopt,fopterr,objnum,linename=linename,l
         forprint,v1,v2,v3,v4,v5,v6,v7,v8,v9,$
           textout=state.savepath+'00_redshift_catalog_bmep.txt',comment="# maskname filter slit ap_no z zerr linename restwave obswave",$
           format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
+        index=where(sss(v1) eq sss(maskname) and sss(v3) eq sss(slitname),ct)
+        if ct ge 1 then begin
+          print,"      maskname   filter   slit  ap_no   z     zerr    linename    restwave    obswave"
+          forprint,v1[index],v2[index],v3[index],v4[index],v5[index],v6[index],v7[index],v8[index],v9[index],$
+            format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'  
+          endif
         endelse
       endif;status eq 1
   endfor;linenum
@@ -1896,7 +1903,7 @@ if key eq 'X' then begin
     coeff,nterms=nterms,error=yfiterr,sigma=gauss_sigma,/gaussian,$
     estimates=estimates,parinfo=pi,status=status,chisq=chisq)
   print,'fit status (1 is good) ' ,status
-  wait,3
+  wait,0.3
   if status eq 1 or status eq 3 then begin
     oplot,xfit,dummy,color=245
     oplot,[coeff[1],coeff[1]],minmax(yfit)
@@ -1951,11 +1958,11 @@ if key eq 'X' then begin
 
       ;extract original name from fits header.
       index=WHERE(extrainfo1 eq 'MSKNM',ct)
-      maskname=extrainfo2[index]
+      maskname=extrainfo2[index[0]]
       index=WHERE(extrainfo1 eq 'FILTNM',ct)
-      filtername=extrainfo2[index]
+      filtername=extrainfo2[index[0]]
       index=WHERE(extrainfo1 eq 'SLITNM',ct)
-      slitname=extrainfo2[index]
+      slitname=extrainfo2[index[0]]
       
       
       if ~file_test(state.savepath+'00_redshift_catalog_bmep.txt') then $
@@ -2013,10 +2020,12 @@ if key eq 'X' then begin
       forprint,v1,v2,v3,v4,v5,v6,v7,v8,v9,$
         textout=state.savepath+'00_redshift_catalog_bmep.txt',comment="# maskname filter slit ap_no z zerr linename restwave obswave",$
         format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
-      index=where(sss(v1) eq sss(maskname) and sss(v3) eq sss(slitname),/null)
-      print,"      maskname   filter   slit  ap_no   z     zerr    linename    restwave    obswave"
-      forprint,v1[index],v2[index],v3[index],v4[index],v5[index],v6[index],v7[index],v8[index],v9[index],$
-        format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
+      index=where(sss(v1) eq sss(maskname) and sss(v3) eq sss(slitname),ct)
+      if ct ge 1 then begin
+        print,"      maskname   filter   slit  ap_no   z     zerr    linename    restwave    obswave"
+        forprint,v1[index],v2[index],v3[index],v4[index],v5[index],v6[index],v7[index],v8[index],v9[index],$
+          format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
+        endif else print,'WARNING, BUG WITH FINDING SIMILAR OBJECTS IN REDSHIFT LIST'
     endelse ; file found
   endif;choice
 endif ;status eq 1
