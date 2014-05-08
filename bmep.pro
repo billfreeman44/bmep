@@ -429,9 +429,10 @@ pro bmep_extraction,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
   fopt=[]
   fopterr=[]
   sky_reslut_arr=findgen(n_elements(state.data[*,0]),order+1)
+  print,'center, width',centerarr[j],widtharr[j]
   
   ;lower extraction limit
-  bottomint=round(centerarr[j]-widtharr[j])>0.0
+  bottomint=round(centerarr[j]-widtharr[j])>0
   
   ;upper extraction limit
   topint=round(centerarr[j]+widtharr[j])<n_elements(state.data[0,*])-1
@@ -806,6 +807,7 @@ function bmep_guess_redshift,state,wavel,fopt,fopterr,objnum,linename=linename,l
   ;get mask name
   index=where(state.extrainfo1 eq 'MSKNM',ct)
   maskname=state.extrainfo2[index[0]]
+  if strlen(maskname) lt 3 then return,0
   z=strmid(maskname,2,1)
   
   ;get filtername
@@ -1984,7 +1986,7 @@ if key eq 'X' then begin
       v9=[v9,coeff[1]]
       
       ;SORT THE LIST ->MASK ->filter -> SLIT
-      index=bsort(v3)
+      index=bsort(v4)
       v1=v1[index]
       v2=v2[index]
       v3=v3[index]
@@ -1996,6 +1998,17 @@ if key eq 'X' then begin
       v9=v9[index]
       
       index=bsort(v2)
+      v1=v1[index]
+      v2=v2[index]
+      v3=v3[index]
+      v4=v4[index]
+      v5=v5[index]
+      v6=v6[index]
+      v7=v7[index]
+      v8=v8[index]
+      v9=v9[index]
+      
+      index=bsort(v3)
       v1=v1[index]
       v2=v2[index]
       v3=v3[index]
@@ -3072,170 +3085,6 @@ end
 
 
 
-
-;6544 7428m
-pro bmep_mosdef_getinfo
-  !except=2 ;see division by zero errors instantly.
-  astrolib
-  savepath=getenv('BMEP_MOSDEF_1D')
-  
-  cd,savepath,current=original_dir
-  
-  spawn,'ls *.1d.fits > filenames.txt'
-  readcol,'filenames.txt',filenames,format='A'
-  spawn,'rm filenames.txt'
-  maskarr=[]
-  filtarr=[]
-  slitarr=[]
-  widtharr=[]
-  yposarr=[]
-  yexpectarr=[]
-  objnumarr=[]
-  isstararr=[]
-  wbyhandarr=[]
-  yexpectarr=[]
-  minwarr=[]
-  blindarr=[]
-  
-  for i=0,n_elements(filenames)-1 do begin
-    data=readfits(filenames[i],hdr,exten_no=1,/silent)
-    substrings=strsplit(filenames[i],'.',/extract)
-    if n_elements(substrings) eq 5 or n_elements(substrings) eq 6 then begin
-      maskarr=[maskarr,sxpar(hdr,'MSKNM')]
-      filtarr=[filtarr,sxpar(hdr,'FILTNM')]
-      slitarr=[slitarr,sxpar(hdr,'SLITNM')]
-      widtharr=[widtharr,fix(sxpar(hdr,'WIDTH'))]
-      yposarr=[yposarr,sxpar(hdr,'YPOS')]
-      objnumarr=[objnumarr,sxpar(hdr,'OBJNUM')]
-      isstararr=[isstararr,sxpar(hdr,'ISSTAR')]
-      wbyhandarr=[wbyhandarr,sxpar(hdr,'WBYHAND')]
-      yexpectarr=[yexpectarr,sxpar(hdr,'YEXPECT')]
-      minwarr=[minwarr,sxpar(hdr,'MINW')]
-      blindarr=[blindarr,sxpar(hdr,'BLIND')]
-    endif
-  endfor
-  
-  
-  index=bsort(filtarr)
-  maskarr=maskarr[index]
-  filtarr=filtarr[index]
-  slitarr=slitarr[index]
-  widtharr=widtharr[index]
-  yposarr=yposarr[index]
-  objnumarr=objnumarr[index]
-  isstararr=isstararr[index]
-  wbyhandarr=wbyhandarr[index]
-  yexpectarr=yexpectarr[index]
-  minwarr=minwarr[index]
-  blindarr=blindarr[index]
-  
-  index=bsort(objnumarr)
-  maskarr=maskarr[index]
-  filtarr=filtarr[index]
-  slitarr=slitarr[index]
-  widtharr=widtharr[index]
-  yposarr=yposarr[index]
-  objnumarr=objnumarr[index]
-  isstararr=isstararr[index]
-  wbyhandarr=wbyhandarr[index]
-  yexpectarr=yexpectarr[index]
-  minwarr=minwarr[index]
-  blindarr=blindarr[index]
-  
-  index=bsort(slitarr)
-  maskarr=maskarr[index]
-  filtarr=filtarr[index]
-  slitarr=slitarr[index]
-  widtharr=widtharr[index]
-  yposarr=yposarr[index]
-  objnumarr=objnumarr[index]
-  isstararr=isstararr[index]
-  wbyhandarr=wbyhandarr[index]
-  yexpectarr=yexpectarr[index]
-  minwarr=minwarr[index]
-  blindarr=blindarr[index]
-  
-  ;    index=sort(filtarr)
-  ;  maskarr=maskarr[index]
-  ;  filtarr=filtarr[index]
-  ;  slitarr=slitarr[index]
-  ;  widtharr=widtharr[index]
-  ;  yposarr=yposarr[index]
-  ;  objnumarr=objnumarr[index]
-  ;  isstararr=isstararr[index]
-  ;  wbyhandarr=wbyhandarr[index]
-  ;  yexpectarr=yexpectarr[index]
-  
-  index=bsort(maskarr)
-  maskarr=maskarr[index]
-  filtarr=filtarr[index]
-  slitarr=slitarr[index]
-  widtharr=widtharr[index]
-  yposarr=yposarr[index]
-  objnumarr=objnumarr[index]
-  isstararr=isstararr[index]
-  wbyhandarr=wbyhandarr[index]
-  yexpectarr=yexpectarr[index]
-  minwarr=minwarr[index]
-  blindarr=blindarr[index]
-  
-  
-  
-  
-  openw,lun,savepath+'00_extract_info.txt',/get_lun
-  printf,lun,'mask filter slit-#[*] width[*](starwidth) ypos yposdifference[!!!]'
-  printf,lun,'* after object number means this is the STAR'
-  printf,lun,'* after width means the width was edited by HAND'
-  printf,lun,'& after width means blindly extracted'
-  printf,lun,'!!! after yposdiff means this value is more than 4 different than others'
-  print,     'mask filter slit-#[*] width[*](starwidth) ypos yposdifference'
-  print,     '* after object number means this is the STAR'
-  print,     '* after width means the width was edited by HAND'
-  print,     '& after width means blindly extracted'
-  print,     '!!! after yposdiff means this value is more than 4 different than others'
-  for i=0,n_elements(slitarr)-1 do begin
-  
-    ;space out different objects
-    if i gt 0 and slitarr[i] ne slitarr[i-1] then print
-    if i gt 0 and slitarr[i] ne slitarr[i-1] then printf,lun
-    
-    ;space out masks
-    if i gt 0 and maskarr[i] ne maskarr[i-1] then begin
-      ;      printf,lun
-      ;      print
-      printf,lun,'======================================='
-      print,'======================================='
-      printf,lun
-      print
-    endif
-    
-    if isstararr[i]  eq 1 then suffix='*'  else suffix=' '
-    if wbyhandarr[i] eq 1 then suffix2='*' else $
-      if blindarr[i]   eq 1 then suffix2='&' else suffix2=' '
-    if (i gt 0) and $
-      (slitarr[i] eq slitarr[i-1]) and $
-      (objnumarr[i] eq objnumarr[i-1]) and $
-      (isstararr[i] ne 1) and $
-      (abs((yposarr[i]-yexpectarr[i]) - (yposarr[i-1]-yexpectarr[i-1])) gt 4.0) $
-      then suffix3='!!!' else suffix3='   '
-      
-    print,     maskarr[i],filtarr[i],slitarr[i],objnumarr[i],$
-      widtharr[i],minwarr[I],yposarr[i],yposarr[i]-yexpectarr[i],$
-      format='(A7,A2,I8,"-",I1,"'+suffix+'",F7.2,"'+suffix2+'(",F7.2,") ",F7.2,F7.1,"'+suffix3+'")
-    printf,lun,maskarr[i],filtarr[i],slitarr[i],objnumarr[i],$
-      widtharr[i],minwarr[I],yposarr[i],yposarr[i]-yexpectarr[i],$
-      format='(A7,A2,I8,"-",I1,"'+suffix+'",F7.2,"'+suffix2+'(",F7.2,") ",F7.2,F7.1,"'+suffix3+'")
-  ;  stop
-  endfor
-  index=where(wbyhandarr eq 1)
-  print,n_elements(index)
-  
-  close,lun
-  free_lun,lun
-  
-  cd,original_dir
-  print,'program over'
-end
 
 
 ;TODO

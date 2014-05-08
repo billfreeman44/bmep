@@ -124,6 +124,8 @@ if doSave eq 1 then begin
   writefits,thefilename,ferr,header,/append
   header=bmep_blind_hdr(p,extrainfo1,extrainfo2,yexpect,width,isstar,objnum,min_width,/image,/no_wave_info)
   writefits,thefilename,p,header,/append
+  header=bmep_blind_hdr(replicate(0.0,n_elements(p)),extrainfo1,extrainfo2,yexpect,width,isstar,objnum,min_width,/image,/no_wave_info)
+  writefits,thefilename,p,header,/append
 endif
 
 ;print,maskname+'.'+filtername+'.'+slitname+suffix+'.1d.fits'
