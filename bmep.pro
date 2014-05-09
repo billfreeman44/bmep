@@ -321,7 +321,8 @@ pro bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername
     slitname:slitname+'_'+filtername,wavel:wavel,savepath:savepath,var_img:var_img,revisevar:revisevar,$
     raw_slitname:slitname,extrainfo1:extrainfo1,extrainfo2:extrainfo2,extrainfo3:extrainfo3,$
     savetext:savetext,cont_mode:0,monitorfix:monitorfix,vacuum:vacuum,$
-    stats_mode:0,n_bins:0,l_bins:[0,0,0,0,0,0,0,0,0,0,0],r_bins:[0,0,0,0,0,0,0,0,0,0,0]}
+    stats_mode:0,n_bins:0,l_bins:[0,0,0,0,0,0,0,0,0,0,0],r_bins:[0,0,0,0,0,0,0,0,0,0,0],$
+    cmode_arr:[0,0,0,0,0,0,0,0,0,0,0]}
   im1.window.MOUSE_DOWN_HANDLER='bmep_MouseDown'
   im1.window.MOUSE_UP_HANDLER='bmep_MouseUp'
   im1.window.Keyboard_Handler='bmep_KeyboardHandler'
@@ -719,12 +720,12 @@ function bmep_find_p,state,bkgndl,bkgndr,order,bottomint,topint,printp,fitgaussp
   ;  p=smooth(p,3,/edge_truncate) ; DON'T SMOOTH THAT SHIT!!
   
   ; outside of width, p is zero
-  index=where(xarr_big lt bottomint or xarr_big gt topint,ct)
-  if ct ne 0 then p[index]=0.0
+  index=where(xarr_big lt bottomint or xarr_big gt topint,/null)
+  p[index]=0.0
   
   ;enforce positivity
-  index=where(p lt 0,ct)
-  if ct gt 0 then p[index]=0.0
+  index=where(p lt 0,/null)
+  p[index]=0.0
   
   ;normalize
   if total(p) ne 0 then p=p/total(p)
@@ -2080,6 +2081,7 @@ end
   state.n_bins=0
   state.l_bins=[0,0,0,0,0,0,0,0,0,0,0]
   state.r_bins=[0,0,0,0,0,0,0,0,0,0,0]
+  state.cmode_arr=[0,0,0,0,0,0,0,0,0,0,0]
   print,'reset cross section'
 end
 'c': begin
@@ -2095,10 +2097,10 @@ end
 's': begin
   if state.stats_mode eq 0 then begin
     state.stats_mode=1
-    print,'cont mode on'
+    print,'stats mode on'
   endif else begin
     state.stats_mode=0
-    print,'cont mode off'
+    print,'stats mode off'
   endelse
 end
 
@@ -2364,6 +2366,7 @@ function bmep_make_hdr,data_make,extrainfo1,extrainfo2,extrainfo3,j,centerarr,wi
   endfor
   sxaddpar, Header, 'NBINS', state.n_bins,' Number of areas of collapsed columns'
   FOR jj=0,state.n_bins-1 do begin
+    sxaddpar, Header, 'CMODE'+ssi(jj+1), state.cmode_arr[jj],' If cont mode was used for this bin'
     sxaddpar, Header, 'LBIN'+ssi(jj+1), state.l_bins[jj],' Left pixel number of area of collapsed columns'
     sxaddpar, Header, 'RBIN'+ssi(jj+1), state.r_bins[jj],' Right pixel number of area of collapsed columns'
   endfor
@@ -2371,6 +2374,7 @@ function bmep_make_hdr,data_make,extrainfo1,extrainfo2,extrainfo3,j,centerarr,wi
     sxaddpar, Header, 'LBINW'+ssi(jj+1), wavel[state.l_bins[jj]],' Left wavelength of area of collapsed columns'
     sxaddpar, Header, 'RBINW'+ssi(jj+1), wavel[state.r_bins[jj]],' Right wavelength of area of collapsed columns'
   endfor
+
   
   sxaddpar, Header, 'CONTMODE', state.cont_mode,' Flag for "continuum mode"'
   if objnum eq -1 then sxaddpar, Header, 'OBJNUM', J+1, $
@@ -4079,6 +4083,7 @@ FUNCTION bmep_MouseUp, oWin, x, y, iButton
       state.l_bins[state.n_bins]=x0
       state.r_bins[state.n_bins]=x
     endelse
+    state.cmode_arr[state.n_bins]=state.cont_mode
     state.n_bins=state.n_bins+1
   endelse
 

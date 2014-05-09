@@ -1,7 +1,9 @@
-pro bmep_redshift_analyze
+pro bmep_redshift_analyze,mosdef=mosdef
 
-savepath=getenv('BMEP_MOSDEF_1D')
-if savepath eq '' then savepath='~/mosfire/output/idl_output/2D/1d_extracted/'
+if ~ keyword_set(mosdef) then savepath=getenv('BMEP_MOSFIRE_1D') $
+  else savepath=getenv('BMEP_MOSDEF_1D')
+  if savepath eq '' then savepath='~/mosfire/output/idl_output/2D/1d_extracted/'
+  
 cd,savepath,current=original_dir
 
 
@@ -49,7 +51,7 @@ for i=0,n_elements(masknames_nodup)-1 do begin
         official_redshifts=zroundarr_small[index[rem_dup(zroundarr_small[index])]]
         for k=0,n_elements(official_redshifts)-1 do begin
           ind=where(zroundarr_small[index] eq official_redshifts[k],ct)
-          print,masknames_nodup[i],slitnames_nodup[j]+'-'+ssi(jj),(official_redshifts[k]/100.0),ct, $
+          print,masknames_nodup[i],slitnames_nodup[j]+' '+ssi(jj),(official_redshifts[k]/100.0),ct, $
             format='(A10,A13,F6.2,I3)
           endfor; k
         endif; ct

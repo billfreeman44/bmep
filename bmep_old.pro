@@ -180,7 +180,7 @@ pro bmep_old,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzend
       endif
       
       ;find yexpect
-      slitlistfile='/Users/bill/mosfire/output/idl_output/2D/mask_info/non_mosdef/masks/'+$
+      slitlistfile='/Users/bill/mosfire/output/idl_output/2D/00mask_info/non_mosdef/masks/'+$
         maskname+'/'+maskname+'_SlitList.txt'
       yexpect=-1
       if file_test(slitlistfile) then begin
