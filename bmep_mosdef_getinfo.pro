@@ -1,6 +1,8 @@
 
 ;6544 7428m
-pro bmep_mosdef_getinfo
+pro bmep_mosdef_getinfo,yposthresh=yposthresh,widththresh=widththresh
+  if ~keyword_set(yposthresh) then yposthresh = 3.0
+  if ~keyword_set(widththresh) then widththresh = 1.0
   !except=2 ;see division by zero errors instantly.
   astrolib
   prior_width=0
@@ -114,14 +116,14 @@ pro bmep_mosdef_getinfo
   printf,lun,'# * after object number means this is the STAR'
   printf,lun,'# * after width means the width was edited by HAND'
   printf,lun,'# & after width means blindly extracted'
-  printf,lun,'# !!! after yposdiff means this value is more than 4 different than others'
-  printf,lun,'# !!! after actual_width means this value is more than 2.0 different than others'
+  printf,lun,'# !!! after yposdiff means this value is more than '+ssf(yposthresh)+' different than others'
+  printf,lun,'# !!! after actual_width means this value is more than '+ssf(widththresh)+' different than others'
   print,     'mask filter slit-#[*] width[*](starwidth) ypos yposdifference[!!!] actual_width[!!!]'
   print,     '* after object number means this is the STAR'
   print,     '* after width means the width was edited by HAND'
   print,     '& after width means blindly extracted'
-  print,     '!!! after yposdiff means this value is more than 4 different than others'
-  print,     '!!! after actual_width means this value is more than 2.0 different than others'
+  print,     '!!! after yposdiff means this value is more than '+ssf(yposthresh)+' different than others'
+  print,     '!!! after actual_width means this value is more than '+ssf(widththresh)+' different than others'
   for i=0,n_elements(slitarr)-1 do begin
   
     ;space out different objects
@@ -145,15 +147,15 @@ pro bmep_mosdef_getinfo
       (slitarr[i] eq slitarr[i-1]) and $
       (objnumarr[i] eq objnumarr[i-1]) and $
       (isstararr[i] ne 1) and $
-      (abs((yposarr[i]-yexpectarr[i]) - (yposarr[i-1]-yexpectarr[i-1])) gt 4.0) $
+      (abs((yposarr[i]-yexpectarr[i]) - (yposarr[i-1]-yexpectarr[i-1])) gt yposthresh) $
       then suffix3='!!! ' else suffix3='    '
     if i gt 0 then prior_width=calc_width
-    calc_width=( minwarr[i] gt widtharr[i] or minwarr[i] lt 0.0) ? 0.0: sqrt((widtharr[i]^2-minwarr[I]^2)>0.0)
+    calc_width=( minwarr[i] gt widtharr[i] or minwarr[i] lt 0.0) ? 0.0: sqrt(((widtharr[i]/2.355)^2-(minwarr[I]/2.355)^2)>0.0)
     if (i gt 0) and $
       (slitarr[i] eq slitarr[i-1]) and $
       (objnumarr[i] eq objnumarr[i-1]) and $
       (isstararr[i] ne 1) and $
-      (abs(calc_width - prior_width) gt 2.0) $
+      (abs(calc_width - prior_width) gt widththresh) $
       then suffix4='!!! ' else suffix4='    '
       
     print,     maskarr[i],filtarr[i],slitarr[i],objnumarr[i],$

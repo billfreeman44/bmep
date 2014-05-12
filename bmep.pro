@@ -436,7 +436,7 @@ pro bmep_extraction,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
   bottomint=round(centerarr[j]-widtharr[j])>0
   
   ;upper extraction limit
-  topint=round(centerarr[j]+widtharr[j])<n_elements(state.data[0,*])-1
+  topint=round(centerarr[j]+widtharr[j])<(n_elements(state.data[0,*])-1)
   
   ;calculate array to extract
   xarr_small=findgen(topint-bottomint+1)+bottomint
@@ -479,7 +479,10 @@ pro bmep_extraction,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
     ;plot p on the plot
     plotshift=poly(centerarr[j],bmep_fit_sky(state.ydata,bkgndl,bkgndr,order,bkgnd_naverage))
     pscale=(state.ydata[centerarr[j]]-plotshift)/max(p)
+;    pmulti_save=!p.multi
+;    if j gt 1 then !p.multi[0]=1
     oplot,(p*pscale + plotshift),color=255,linestyle=3
+;    !p.multi[0]=1+j*2
   endif
   
   ;set up vars
@@ -748,6 +751,12 @@ function bmep_find_p,state,bkgndl,bkgndr,order,bottomint,topint,printp,fitgaussp
     
     
   endif
+  
+  if total(p) eq 0 then begin
+    index=where(xarr_big ge bottomint or xarr_big ge topint,/null)
+    p[index]=1.0
+    p=p/total(p)
+    endif
   
   ;plot if desired
   if plotp then zzzzzz=plot(p/max(p))
