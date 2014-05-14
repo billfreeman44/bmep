@@ -3340,6 +3340,7 @@ end
 ;renamed starinfo.txt to be 00_starinfo.txt
 ;
 ;may 2014
+;check github commit page for updates.
 ;
 
 
@@ -3452,9 +3453,18 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
     choicearr=choicearr[index]
   endif else choicearr=[choice]
   
+  x=getenv('BMEP_MOSDEF_MASKS')
+  if x ne '' then slitlistfile=x $
+    else slitlistfile=path_to_output+'00mask_info/'
+
+  ;ensure that there is a '/' at the end of the path.
+  if strmid(slitlistfile,strlen(slitlistfile)-1) ne '/' then slitlistfile=slitlistfile+'/'
+  
+  ;ADD mask to slitlistfile
+  slitlistfile=slitlistfile+maskname+'_SlitList.txt'
+  
   ;FIND ALL THE STARS!!!
   if choice eq n_elements(objects)+1 then begin
-    slitlistfile=path_to_output+'00mask_info/'+maskname+'_SlitList.txt'
     if ~file_test(slitlistfile) then message,'SLITLIST FILE MISSING... '+SLITLISTFILE
     readcol,slitlistfile,slitnamearr,priorityarr,offsetarr,format='X,X,X,X,X,X,X,X,X,A,F,F,X,X,X,X,X,X',/silent
     star_index=where(abs(priorityarr) eq 1.0,ct)
@@ -3567,7 +3577,6 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
         
         
       ;calculate where object SHOULD be!
-      slitlistfile=path_to_output+'00mask_info/'+maskname+'_SlitList.txt'
       if ~file_test(slitlistfile) then message,'SLITLIST FILE MISSING... '+SLITLISTFILE
       
       ;1 2 17  45.61 -5  10  9.37  0.70  7.01  23763 800.00  -0.38 2 17  45.59 -5  10  9.65
@@ -3655,7 +3664,10 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
         ' minimum width (-1 default)', $
         ' expected y position' $
         ]
-        
+      
+      if isstar eq 0 and minwidth lt 0 then $
+        for ii=0,13 do print,'WARNING, DO THE STARS BEFORE DOING ANY OBJECTS'
+      
       bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername,wavel,savepath,$
         revisevar=0,extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=0,$
         monitorfix=monitorfix,vacuum=1
