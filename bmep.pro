@@ -3360,7 +3360,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
   if ~keyword_set(path_to_output) then path_to_output='~/mosfire/output/idl_output/2D/' ; no trailing slash
   
   ;ensure that there is a '/' at the end of the path.
-  if strmid(path_to_output,strlen(path_to_output)-1) ne '/' then path_to_output=path_to_output+'/'
+  if strmid(path_to_output,strlen(path_to_output)-1) ne path_sep() then path_to_output=path_to_output+path_sep()
   cd,path_to_output,current=original_dir
   
   ;clear away all windows!!
@@ -3375,7 +3375,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
     if ~bmep_DIR_EXIST(savepath) then file_mkdir ,'1d_extracted'
     endelse
   ;ensure that there is a '/' at the end of the path.
-  if strmid(savepath,strlen(savepath)-1) ne '/' then savepath=savepath+'/'
+  if strmid(savepath,strlen(savepath)-1) ne path_sep() then savepath=savepath+path_sep()
   
   ;create a 00_starinfo.txt if not exist
   if ~file_test(savepath+'00_starinfo.txt') then begin
@@ -3458,7 +3458,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
     else slitlistfile=path_to_output+'00mask_info/'
 
   ;ensure that there is a '/' at the end of the path.
-  if strmid(slitlistfile,strlen(slitlistfile)-1) ne '/' then slitlistfile=slitlistfile+'/'
+  if strmid(slitlistfile,strlen(slitlistfile)-1) ne path_sep() then slitlistfile=slitlistfile+path_sep()
   
   ;ADD mask to slitlistfile
   slitlistfile=slitlistfile+maskname+'_SlitList.txt'
@@ -3701,7 +3701,7 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
   if ~keyword_set(path_to_output) then path_to_output='~/mosfire/output/idl_output/2D/' ; no trailing slash
   
   ;ensure that there is a '/' at the end of the path.
-  if strmid(path_to_output,strlen(path_to_output)-1) ne '/' then path_to_output=path_to_output+'/'
+  if strmid(path_to_output,strlen(path_to_output)-1) ne path_sep() then path_to_output=path_to_output+path_sep()
   cd,path_to_output,current=original_dir
   
   ;clear away all windows!!
@@ -3716,7 +3716,7 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
     if ~bmep_DIR_EXIST(savepath) then file_mkdir ,'1d_extracted'
     endelse
   ;ensure that there is a '/' at the end of the path.
-  if strmid(savepath,strlen(savepath)-1) ne '/' then savepath=savepath+'/'
+  if strmid(savepath,strlen(savepath)-1) ne path_sep() then savepath=savepath+path_sep()
   
   ;create a 00_starinfo.txt if not exist
   if ~file_test(savepath+'00_starinfo.txt') then begin
@@ -4403,7 +4403,7 @@ pro bmep,path_to_output=path_to_output
   if ~keyword_set(path_to_output) then path_to_output='~/mosdrp/output/'
   
   ;ensure that there is a '/' at the end of the path.
-  if strmid(path_to_output,strlen(path_to_output)-1) ne '/' then path_to_output=path_to_output+'/'
+  if strmid(path_to_output,strlen(path_to_output)-1) ne path_sep() then path_to_output=path_to_output+path_sep()
   print,'the output 2D path is',path_to_output
   
   cd,path_to_output,current=original_dir
