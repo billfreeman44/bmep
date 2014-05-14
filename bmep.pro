@@ -1346,6 +1346,11 @@ FUNCTION bmep_KeyboardHandler, oWin, $
           stop
         endif
         
+        ;stop command for debugging purposes.
+        if key eq ')' then begin
+          help
+        endif
+        
         ;1-5 change object number.
         if key eq '1' then begin
           objnum=-1
@@ -2162,10 +2167,7 @@ pro bmep_lris,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
   
   
   ;find folders of masks..
-  spawn,'pwd'
-  spawn,'ls > tempfiles.txt'
-  readcol,'tempfiles.txt',filenames,format='A',/silent
-  spawn,'rm tempfiles.txt
+  filenames = file_search('')
   temp=[]
   for i=0,n_elements(filenames)-1 do $
     if bmep_dir_exist(filenames[i]) then temp=[temp,filenames[i]]
@@ -2184,13 +2186,11 @@ pro bmep_lris,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
   cd,maskname
   
   savepath=path_to_output+maskname+'/1d_extracted/'
-  if not bmep_DIR_EXIST(savepath) then spawn,'mkdir 1d_extracted'
+  if ~bmep_DIR_EXIST(savepath) then file_mkdir,'1d_extracted'
   
   ;check if fits files exist
   ;lris files have the format cutout_slitname.fits
-  spawn,'ls cutout_*.fits > xx__spec_list.txt'
-  readcol,'xx__spec_list.txt',filenames,format='A',/silent
-  spawn,'rm xx__spec_list.txt
+  filenames = file_search('cutout_*.fits')
   if n_elements(filenames) eq 0 then message,'no fits files found... probably no cutouts'
   
   
@@ -2430,9 +2430,7 @@ pro bmep_make_lris_plots,path_to_output=path_to_output
   cd,path_to_output,current=original_dir
   
   ;find folders of masks..
-  spawn,'ls > tempfiles.txt'
-  readcol,'tempfiles.txt',foldernames,format='A',/silent
-  spawn,'rm tempfiles.txt'
+  foldernames = file_search('',/test_directory)
   
   ;use iii as to not mess with restored variables
   for iii=0,n_elements(foldernames)-1 do begin
@@ -2447,9 +2445,7 @@ pro bmep_make_lris_plots,path_to_output=path_to_output
       filenames=[]
       
       ;find .sav files
-      spawn,'ls *.sav > tempfiles.txt'
-      readcol,'tempfiles.txt',filenames,format='A',/silent,count=count
-      spawn,'rm tempfiles.txt
+      filenames = file_search('*.sav')
       
       ;set flag to indicate if the PS file was started
       psstartflag=0
@@ -2495,7 +2491,7 @@ end
 
 
 pro bmep_mosdef_fluxcal
-
+stop
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   !except=2 ;see division by zero errors instantly.
@@ -2509,10 +2505,8 @@ pro bmep_mosdef_fluxcal
   cd,path_to_output+'/1d_extracted',current=original_dir
   
   ;read in list of 1d spectra
-  spawn,'rm *.fc.*
-  spawn,'ls *.1d.fits > tempfiles.txt'
-  readcol,'tempfiles.txt',filenames,format='A',/silent
-  spawn,'rm tempfiles.txt'
+  spawn,'rm *.fc.*'
+  filenames = file_search('*.1d.fits')
   print,'list contains ',n_elements(filenames),' objects
   
   ;read in normalization data
@@ -2583,9 +2577,7 @@ pro bmep_mosdef_update_yexpect
   cd,path_to_output+'/1d_extracted',current=original_dir
   
   ;read in list of 1d spectra
-  spawn,'ls *.1d.fits > tempfiles.txt'
-  readcol,'tempfiles.txt',filenames,format='A',/silent
-  spawn,'rm tempfiles.txt'
+  filenames = file_search('*.1d.fits')
   print,'list contains ',n_elements(filenames),' objects
   
   ;loop through 1d spectra
@@ -2693,10 +2685,8 @@ pro bmep_mosdef_rereduce
   cd,path_to_output+'/1d_extracted',current=original_dir
   
   ;read in list of 1d spectra
-  spawn,'ls *.1d.fits > tempfiles.txt' ;;for all files
-;  spawn,'ls co3_01*.1d.fits > tempfiles.txt' ;for updating only one
-  readcol,'tempfiles.txt',filenames,format='A',/silent
-  spawn,'rm tempfiles.txt'
+;  filenames = file_search('co3_01*.1d.fits');for updating only one
+  filenames = file_search('*.1d.fits')
   print,'list contains ',n_elements(filenames),' objects
   
   ;create backup folder
@@ -2710,7 +2700,7 @@ pro bmep_mosdef_rereduce
       backup_folder_name=  ''+ssi(prefixnum)+'backup'
       
     if bmep_dir_exist(backup_folder_name) then print,backup_folder_name+' exists' else begin
-      spawn,'mkdir '+backup_folder_name
+      file_mkdir,backup_folder_name
       foldermade=1
     endelse
     prefixnum++
@@ -3359,6 +3349,8 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   !except=2 ;see division by zero errors instantly.
   astrolib
+;  pref_set,'IDL_GR_X_QSCREEN',1
+;  pref_set,'IDL_GR_X_RENDERER',1 ; 1 software, 0 hardware.
   
   ;set output to what is in the envoirnment variable
   x=getenv('BMEP_MOSDEF_2D')
@@ -3377,9 +3369,9 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
   ;get where to save output of extraction program
   x=getenv('BMEP_MOSDEF_1D')
   if x ne '' then savepath=x else begin
-    savepath=path_to_output+'/1d_extracted/'
+    savepath=path_to_output+'1d_extracted/'
     ;create folder to extract to if it doesn't exist.
-    if ~bmep_DIR_EXIST(savepath) then spawn,'mkdir 1d_extracted'
+    if ~bmep_DIR_EXIST(savepath) then file_mkdir ,'1d_extracted'
     endelse
   ;ensure that there is a '/' at the end of the path.
   if strmid(savepath,strlen(savepath)-1) ne '/' then savepath=savepath+'/'
@@ -3392,9 +3384,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
   
   
   ;parse folder into different masks!!
-  spawn,'ls *.2d.fits > tempfiles.txt'
-  readcol,'tempfiles.txt',filenames,format='A',/silent
-  spawn,'rm tempfiles.txt'
+  filenames = file_search('*.2d.fits')
   
   ;parse names
   masks=[]
@@ -3711,7 +3701,7 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
   if x ne '' then savepath=x else begin
     savepath=path_to_output+'/1d_extracted/'
     ;create folder to extract to if it doesn't exist.
-    if ~bmep_DIR_EXIST(savepath) then spawn,'mkdir 1d_extracted'
+    if ~bmep_DIR_EXIST(savepath) then file_mkdir ,'1d_extracted'
     endelse
   ;ensure that there is a '/' at the end of the path.
   if strmid(savepath,strlen(savepath)-1) ne '/' then savepath=savepath+'/'
@@ -3724,9 +3714,7 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
   
   
   ;parse folder into different masks!!
-  spawn,'ls *.2d.fits > tempfiles.txt'
-  readcol,'tempfiles.txt',filenames,format='A',/silent
-  spawn,'rm tempfiles.txt'
+  filenames = file_search('*.2d.fits')
   
   ;parse names
   masks=[]
@@ -4244,10 +4232,8 @@ pro bmep_view_1d,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
   ireset,/no_prompt
   
   ;find folders of masks..
-  spawn,'pwd'
-  spawn,'ls > tempfiles.txt'
-  readcol,'tempfiles.txt',filenames,format='A',/silent
-  spawn,'rm tempfiles.txt
+;  spawn,'pwd'
+  filenames = file_search('*.2d.fits')
   
   ;print out folders and ask user which to use
   forprint,indgen(n_elements(filenames)),replicate(' ',n_elements(filenames)),filenames
@@ -4267,9 +4253,7 @@ pro bmep_view_1d,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
   cd,savepath
   
   ;read in extracted
-  spawn,'ls *.sav > tempfiles.txt'
-  readcol,'tempfiles.txt',filenames,format='A',/silent
-  spawn,'rm tempfiles.txt
+  filenames = file_search('*.sav')
   
   ;get which file to view
   forprint,indgen(n_elements(filenames)),replicate(' ',n_elements(filenames)),filenames
@@ -4310,9 +4294,8 @@ pro bmep_wrap_rereduce_optimal,path_to_output=path_to_output
   cd,path_to_output,current=original_dir
   
   ;find folders of masks..
-  spawn,'ls > tempfiles.txt'
-  readcol,'tempfiles.txt',foldernames,format='A',/silent
-  spawn,'rm tempfiles.txt
+  
+  foldernames = file_search('')
   
   print,'foldernames'
   print,foldernames
@@ -4325,9 +4308,7 @@ pro bmep_wrap_rereduce_optimal,path_to_output=path_to_output
     if bmep_dir_exist(extracted_folder) then begin
       cd,extracted_folder
       filenames=[]
-      spawn,'ls *.sav > tempfiles.txt'
-      readcol,'tempfiles.txt',filenames,format='A',/silent,count=count
-      spawn,'rm tempfiles.txt
+      filenames = file_search('*.sav')
       
       ;if any .save files are found, rereduce them!
       for j=0,n_elements(filenames)-1 do begin
@@ -4416,10 +4397,7 @@ pro bmep,path_to_output=path_to_output
   cd,path_to_output,current=original_dir
 
   ;find folders of masks..
-  spawn,'pwd'
-  spawn,'ls > tempfiles.txt'
-  readcol,'tempfiles.txt',filenames,format='A',/silent
-  spawn,'rm tempfiles.txt
+  filenames = file_search('',/test_directory)
   forprint,indgen(n_elements(filenames)),replicate(' ',n_elements(filenames)),filenames
   print,'which number'
   read,choice
@@ -4433,10 +4411,7 @@ pro bmep,path_to_output=path_to_output
   cd,maskname
   
   ;find folders of dates..
-  spawn,'pwd'
-  spawn,'ls > tempfiles.txt'
-  readcol,'tempfiles.txt',filenames,format='A',/silent
-  spawn,'rm tempfiles.txt
+  filenames = file_search('',/test_directory)
   forprint,indgen(n_elements(filenames)),replicate(' ',n_elements(filenames)),filenames
   print,'which number'
   read,choice
@@ -4452,7 +4427,7 @@ pro bmep,path_to_output=path_to_output
   x=getenv('BMEP_MOSFIRE_DRP_1D')
   if x ne '' then savepath=x else begin
     savepath=path_to_output+maskname+'/'+datename+'/1d_extracted/'
-    if ~bmep_DIR_EXIST(savepath) then spawn,'mkdir 1d_extracted'
+    if ~bmep_DIR_EXIST(savepath) then file_mkdir,'1d_extracted'
     endelse
     
   ;create a 00_starinfo.txt if not exist
@@ -4462,9 +4437,7 @@ pro bmep,path_to_output=path_to_output
   endif  
   
   ;find what filters someone looked at
-  spawn,'ls > tempfiles.txt'
-  readcol,'tempfiles.txt',filternames,format='A',/silent
-  spawn,'rm tempfiles.txt
+  filternames = file_search('',/test_directory)
   index=where(strlen(filternames) eq 1)
   filternames=filternames[index]
   print,'filters found: ',filternames
@@ -4472,9 +4445,7 @@ pro bmep,path_to_output=path_to_output
   
   ;check if fits files exist and create filenames array
   cd,filternames[0]
-  spawn,'ls '+maskname+'_?_*eps.fits > xx__spec_list.txt'
-  readcol,'xx__spec_list.txt',filenames,format='A',/silent
-  spawn,'rm xx__spec_list.txt
+  filenames = file_search(maskname+'_?_*eps.fits')
   if n_elements(filenames) eq 0 then message,'no fits files found... '
   
   ;get the names of the slits

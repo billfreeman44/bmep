@@ -7,7 +7,8 @@ pro bmep_mosdef_getinfo,yposthresh=yposthresh,widththresh=widththresh
   astrolib
   prior_width=0
   savepath=getenv('BMEP_MOSDEF_1D')
-  if savepath eq '' then savepath='~/mosfire/output/idl_output/2D/1d_extracted/'
+;  if savepath eq '' then savepath='~/mosfire/output/idl_output/2D/1d_extracted/005backup/'
+  if savepath eq '' then savepath='/Users/bill/mosdef/sedona_1d_extracted/'
   cd,savepath,current=original_dir
   
   spawn,'ls *.1d.fits > filenames.txt'
@@ -110,7 +111,7 @@ pro bmep_mosdef_getinfo,yposthresh=yposthresh,widththresh=widththresh
   
   
   
-  
+  print,savepath+'00_extract_info.txt'
   openw,lun,savepath+'00_extract_info.txt',/get_lun
   printf,lun,'# mask filter slit-#[*] width[*](starwidth) ypos yposdifference[!!!] actual_width[!!!]'
   printf,lun,'# * after object number means this is the STAR'
