@@ -4785,7 +4785,7 @@ pro bmep,path_to_output=path_to_output
         endif
         
         ;find yexpect
-        slitlistfile=getenv(BMEP_MOSFIRE_DRP_MASKS)+$
+        slitlistfile=getenv('BMEP_MOSFIRE_DRP_MASKS')+$
           maskname+'/'+maskname+'_SlitList.txt'
         yexpect=-1
         if file_test(slitlistfile) then begin
