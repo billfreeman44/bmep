@@ -4691,7 +4691,7 @@ pro bmep,path_to_output=path_to_output
   if choice lt 0 then goto,theend
   if choice ge n_elements(slitnames)+1 then goto,theend
   if choice eq n_elements(slitnames) then begin
-    choicearr=indgen(n_elements(objects))
+    choicearr=indgen(n_elements(slitnames))
     minobjnum=0
     maxobjnum=n_elements(objects)-1
     print,'min object num?'
@@ -4772,7 +4772,7 @@ pro bmep,path_to_output=path_to_output
         big_img[*,ny*0:ny*1-1]=bytscl(sciimg,top=255,/NAN,$
           min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))   ;science img
         big_img[*,ny*1:ny*2-1]=bytscl(var_img,top=255,/NAN,$
-          min=bmep_percent_cut(var_img,botpercent),max=bmep_percent_cut(var_img,toppercent))  ;ivar img
+          min=bmep_percent_cut(var_img,botpercent),max=bmep_percent_cut(var_img,toppercent))  ;var img
         big_img[*,ny*2:ny*3-1]=bytscl(snrimg,top=255,/NAN,$
           min=bmep_percent_cut(abs(sciimg),5.0),max=bmep_percent_cut(abs(sciimg),95.0))   ;snr img
         big_img[*,ny*3:ny*4-1]=bytscl(snr2sigCut,top=255,/NAN,$
