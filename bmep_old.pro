@@ -1,4 +1,4 @@
-pro bmep_old,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=gzending,ivarending=ivarending
+pro bmep_old,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzending=gzending
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   !except=2
@@ -6,7 +6,6 @@ pro bmep_old,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzend
   
   astrolib
   if ~keyword_set(gzending) then gzending=0
-  if ~keyword_set(ivarending) then ivarending=0
   if ~keyword_set(path_to_dropbox) then path_to_dropbox='~/Dropbox/'
   
   ;set output to what is in the envoirnment variable
@@ -27,10 +26,7 @@ pro bmep_old,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzend
   
   
   ;find folders of masks..
-  spawn,'pwd'
-  spawn,'ls > tempfiles.txt'
-  readcol,'tempfiles.txt',filenames,format='A',/silent
-  spawn,'rm tempfiles.txt
+  filenames = file_search('',/test_directory)
   forprint,indgen(n_elements(filenames)),replicate(' ',n_elements(filenames)),filenames
   print,'which number'
   read,choice
@@ -57,10 +53,12 @@ pro bmep_old,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzend
   endif  
   
   ;check if fits files exist and create filenames array
-  if gzending eq 0 then spawn,'ls '+maskname+'_?_*eps.fits > xx__spec_list.txt' $
-  else spawn,'ls '+maskname+'_?_*eps.fits.gz > xx__spec_list.txt'
-  readcol,'xx__spec_list.txt',filenames,format='A',/silent
-  spawn,'rm xx__spec_list.txt
+;  if gzending eq 0 then spawn,'ls '+maskname+'_?_*eps.fits > xx__spec_list.txt' $
+;  else spawn,'ls '+maskname+'_?_*eps.fits.gz > xx__spec_list.txt'
+;  readcol,'xx__spec_list.txt',filenames,format='A',/silent
+;  spawn,'rm xx__spec_list.txt
+  
+  filenames = file_search('*eps*')
   if n_elements(filenames) eq 0 then message,'no fits files found... probably bad fliter choice'
   
   ;get the names of the slits
@@ -90,40 +88,36 @@ pro bmep_old,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzend
     epsfile=filenames[choicearr[i]]
     ;check if the files exist
     if gzending eq 0 then $
-      if ivarending eq 0 then $
-        stdfile=strmid(epsfile,0,strlen(epsfile)-strlen('_eps.fits'))+'_sig.fits' $
-        else $
-          stdfile=strmid(epsfile,0,strlen(epsfile)-strlen('_eps.fits'))+'_ivar.fits' $
+          ivarfile=strmid(epsfile,0,strlen(epsfile)-strlen('_eps.fits'))+'_ivar.fits' $
       else $
-      stdfile=strmid(epsfile,0,strlen(epsfile)-strlen('_eps.fits.gz'))+'_ivar.fits.gz'
+      ivarfile=strmid(epsfile,0,strlen(epsfile)-strlen('_eps.fits.gz'))+'_ivar.fits.gz'
     ;check if these files actually exist
     if ~file_test(epsfile) then print,'WARNING!!!! file '+epsfile+' does not exist'
-    if ~file_test(stdfile) then print,'WARNING!!!! file '+stdfile+' does not exist'
-    print,stdfile
+    if ~file_test(ivarfile) then print,'WARNING!!!! file '+ivarfile+' does not exist'
+    print,ivarfile
     print,epsfile
     
-    if file_test(epsfile) and file_test(stdfile) and slitname ne '' then begin
+    if file_test(epsfile) and file_test(ivarfile) and slitname ne '' then begin
       filtername=strmid(epsfile,strlen(maskname)+1,1)
       
       ;read in files
       sciimg=readfits(epsfile,shdr, /SILENT)
       sciimg=double(sciimg)
-      std_img=readfits(stdfile, /SILENT)
-      std_img=double(abs(std_img))
+      ivar_img=readfits(ivarfile, /SILENT)
+      ivar_img=double(abs(ivar_img))
       
       ny=n_elements(sciimg[0,*])
       nx=n_elements(sciimg[*,0])
       
-      ;fix the image if its an ivar image
-      if ivarending eq 1 then begin 
-        index=where(std_img ne 0.0,ct)
-        std_img[index]=sqrt(1.0/std_img[index])
-        endif  
-      
       ;calculate variance image
-      index=where(std_img ne 0.0,ct)
+      index=where(ivar_img ne 0.0,ct)
       var_img=replicate(0.0,nx,ny)
-      var_img[index]=std_img[index]*std_img[index]
+      var_img[index]=1.0/ivar_img[index]
+      
+      ;calc std img
+      index=where(ivar_img ne 0.0,ct)
+      std_img=replicate(0.0,nx,ny)
+      std_img[index]=sqrt(var_img[index])
       
       ;clean variance image of nan or inf values
       ind=where(finite(var_img) eq 0,ct)
@@ -154,27 +148,36 @@ pro bmep_old,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzend
       ;snr image
       index=where(std_img ne 0)
       snrimg=sciimg
-      snrimg[index]=sciimg[index]/std_img[index]
+      snrimg[index]=sciimg[index]/(std_img[index]/2.5)
       snr2sigCut=snrimg
       index=where(snr2sigCut lt 2.0,/null)
       snr2sigCut[index]=0.0
+      index=where(snr2sigCut gt 3.0,/null)
+      snr2sigCut[index]=3.0
       
       ;mess with these to change how an image is viewed. (scaling)
       botpercent=10.0
       toppercent=90.0
       
-      big_img=findgen(nx,(ny*4))
+;      big_img=findgen(nx,(ny*4))
+      big_img=findgen(nx,(ny*2))
       big_img[*,ny*0:ny*1-1]=bytscl(sciimg,top=255,/NAN,$
         min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))   ;science img
-      big_img[*,ny*1:ny*2-1]=bytscl(var_img,top=255,/NAN,$
-        min=bmep_percent_cut(var_img,botpercent),max=bmep_percent_cut(var_img,toppercent))  ;ivar img
-      big_img[*,ny*2:ny*3-1]=bytscl(snrimg,top=255,/NAN,$
-        min=bmep_percent_cut(abs(sciimg),5.0),max=bmep_percent_cut(abs(sciimg),95.0))   ;snr img
-      big_img[*,ny*3:ny*4-1]=bytscl(snr2sigCut,top=255,/NAN,$
+      big_img[*,ny*1:ny*2-1]=bytscl(snr2sigCut,top=255,/NAN,$
         min=2.0,max=3.0)   ;snr img
+;      big_img[*,ny*1:ny*2-1]=bytscl(var_img,top=255,/NAN,$
+;        min=bmep_percent_cut(var_img,botpercent),max=bmep_percent_cut(var_img,toppercent))  ;ivar img
+;      big_img[*,ny*2:ny*3-1]=bytscl(snrimg,top=255,/NAN,$
+;        min=bmep_percent_cut(abs(sciimg),5.0),max=bmep_percent_cut(abs(sciimg),95.0))   ;snr img
+;      big_img[*,ny*3:ny*4-1]=bytscl(snr2sigCut,top=255,/NAN,$
+;        min=2.0,max=3.0)   ;snr img
+;      big_img[*,ny*4:ny*5-1]=bytscl(ivar_img,top=255,/NAN,$
+;        min=bmep_percent_cut(ivar_img,botpercent),max=bmep_percent_cut(ivar_img,toppercent))   ;science img
+;      big_img[*,ny*5:ny*6-1]=bytscl(std_img,top=255,/NAN,$
+;        min=bmep_percent_cut(std_img,botpercent),max=bmep_percent_cut(std_img,toppercent))   ;science img
         
       ;resize big_img if really big in y direction...
-      if ny*4 gt 1000 then begin
+      if ny*2 gt 1000 then begin
         big_img=bytscl(sciimg,top=255,/NAN,$
           min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))
       endif
@@ -185,7 +188,7 @@ pro bmep_old,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,gzend
       yexpect=-1
       if file_test(slitlistfile) then begin
         readcol,slitlistfile,slitnamearr,priorityarr,offsetarr,format='X,X,X,X,X,X,X,X,X,I,F,F,X,X,X,X,X,X'
-        index=where(long(slitnamearr) eq long(slitname),ct)
+        index=where(sss(slitnamearr) eq sss(slitname),ct)
         
         isstar=-1
         minwidth=-1

@@ -4235,7 +4235,7 @@ FUNCTION bmep_MouseUp, oWin, x, y, iButton
   y0 = state.y0
   print,'mouse up at',x,y
   print,x0,' to ',x
-  print,state.width_scale_factor*x0,' to ',state.width_scale_factor*x
+  print,'scaled to ',state.width_scale_factor*x0,' to ',state.width_scale_factor*x
   x0=round(state.width_scale_factor*x0)
   x=round(state.width_scale_factor*x)
   
@@ -4669,7 +4669,7 @@ pro bmep,path_to_output=path_to_output
   
   ;check if fits files exist and create filenames array
   cd,filternames[0]
-  filenames = file_search(maskname+'_?_*eps.fits')
+  filenames = file_search(maskname+'_*eps.fits')
   if n_elements(filenames) eq 0 then message,'no fits files found... '
   
   ;get the names of the slits
@@ -4707,8 +4707,8 @@ pro bmep,path_to_output=path_to_output
       filtername=filternames[j]
       cd,path_to_output+maskname+'/'+datename+'/'+filtername
       slitname=slitnames[choicearr[i]]
-      epsfile=maskname+'_'+filtername+'_'+maskname+'_'+slitname+'_eps.fits'
-      stdfile=maskname+'_'+filtername+'_'+maskname+'_'+slitname+'_sig.fits' 
+      epsfile=maskname+'_'+filtername+'_'+slitname+'_eps.fits'
+      stdfile=maskname+'_'+filtername+'_'+slitname+'_sig.fits' 
       
       if ~file_test(epsfile) then print,'WARNING!!!! file '+epsfile+' does not exist'
       if ~file_test(stdfile) then print,'WARNING!!!! file '+stdfile+' does not exist'
