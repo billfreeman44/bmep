@@ -13,11 +13,12 @@ if etest eq 0 then defsysv,'!xyouts_key',0
 shiftamt=abs(yrange[0]-yrange[1])/35.0
 ;,Orientation=90.0
 
-if keyword_set(cg) then cgText,xpos,ynamepos+shiftamt*!xyouts_key,name,charsize=charsize else begin
+if keyword_set(cg) and keyword_set(ynamepos) and keyword_set(name) then $
+  cgText,xpos,ynamepos+shiftamt*!xyouts_key,name,charsize=charsize else begin
 
-  if keyword_set(ynamepos) then xyouts,xpos,ynamepos+shiftamt*!xyouts_key,name,charsize=charsize,charthick=1 $
+  if keyword_set(ynamepos) and ~keyword_set(cg) then xyouts,xpos,ynamepos+shiftamt*!xyouts_key,name,charsize=charsize,charthick=1 $
     else begin 
-      if keyword_set(name) then xyouts,xpos,0+shiftamt*!xyouts_key,name,charsize=charsize,charthick=4
+      if keyword_set(name) and ~keyword_set(cg) then xyouts,xpos,0+shiftamt*!xyouts_key,name,charsize=charsize,charthick=4
       endelse
   endelse
   

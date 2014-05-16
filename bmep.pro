@@ -275,9 +275,9 @@ end
 ;
 ;revisevar - set keyword to revise variance estimate. no default, please set this. (essential keyword)
 ;
-;extrainfo1 - fits keywords to be added to fits header (optional)
-;extrainfo2 - values of the fits keywords to be added (optional)
-;extrainfo2 - comments of the fits keywords to be added (optional)
+;extrainfo1 - fits keywords to be added to fits header ()
+;extrainfo2 - values of the fits keywords to be added ()
+;extrainfo2 - comments of the fits keywords to be added ()
 ;savetext - flag as to weather or not to save a text file. (optional)
 ;
 ;
@@ -296,7 +296,8 @@ pro bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername
   if ~keyword_set(monitorfix) then monitorfix=0
   if ~keyword_set(vacuum) then vacuum=0
   !except=2
-  
+  dimensions = GET_SCREEN_SIZE()
+  monitor_width=dimensions[0]-10
   ;check version number
   IF (Float(!Version.Release) lt 8.1) THEN message,'idl ver must be 8.1 or greater'
   
@@ -312,9 +313,20 @@ pro bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername
   var_img[INDEX]=ABS(var_img[INDEX])
   ;print,'there are ',ct,' pixels with NEGATIVE value for  variance '
   
-  im1=image(big_img,dimensions=[n_elements(big_img[*,0]),n_elements(big_img[0,*])],$
+  dimensions = GET_SCREEN_SIZE()
+  monitor_width=dimensions[0]-10
+  if n_elements(big_img[*,0]) gt monitor_width then begin
+    xdim=monitor_width
+    width_scale_factor=float(n_elements(big_img[*,0]))/float(monitor_width)
+    endif else begin
+      xdim=n_elements(big_img[*,0])
+      width_scale_factor=1.0
+      endelse
+;  print,'monitor width scale factor is: ',width_scale_factor
+  
+  im1=image(big_img,dimensions=[xdim,n_elements(big_img[0,*])],$ ;n_elements(big_img[0,*])
     window_title=slitname+'-'+filtername,max_value=highval,min_value=lowval,margin=[0,0,0,0],$
-    location=[0,0],/xstyle,/ystyle);title=slitname,
+    location=[0,0],/xstyle,/ystyle,/widget);title=slitname,
     
   im1.window.UVALUE={x0:0, y0:0, buttonDown:0L,$
     ydata:replicate(0.D,n_elements(sciimg[0,*])),ydataerr:replicate(0.D,n_elements(sciimg[0,*])),data:sciimg,$
@@ -322,7 +334,7 @@ pro bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername
     raw_slitname:slitname,extrainfo1:extrainfo1,extrainfo2:extrainfo2,extrainfo3:extrainfo3,$
     savetext:savetext,cont_mode:0,monitorfix:monitorfix,vacuum:vacuum,$
     stats_mode:0,n_bins:0,l_bins:[0,0,0,0,0,0,0,0,0,0,0],r_bins:[0,0,0,0,0,0,0,0,0,0,0],$
-    cmode_arr:[0,0,0,0,0,0,0,0,0,0,0]}
+    cmode_arr:[0,0,0,0,0,0,0,0,0,0,0],width_scale_factor:width_scale_factor}
   im1.window.MOUSE_DOWN_HANDLER='bmep_MouseDown'
   im1.window.MOUSE_UP_HANDLER='bmep_MouseUp'
   im1.window.Keyboard_Handler='bmep_KeyboardHandler'
@@ -556,6 +568,194 @@ pro bmep_extraction,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
 end ; end of extraction
 
 
+;extract the spectra!! algorithm from horne 1986
+pro bmep_extraction_subpixel,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
+    printp,fitgaussp,plotp,slidep,pwindowsize,singlep,cosmic_sigma,n_iterate_cosmic,bkgnd_naverage,max_rays_per_col,$
+    $;OUTPUTS
+    F,ferr,Fopt,fopterr,img2d_nobkgnd,parr,sky_reslut_arr,sky_residuals,$
+    revisevar=revisevar,quiet=quiet
+  FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
+    bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
+    
+  if ~ keyword_set(quiet) then quiet = 0
+  
+  ;print,'doing center number ',j
+  f=[]
+  ferr=[]
+  fopt=[]
+  fopterr=[]
+  sky_reslut_arr=findgen(n_elements(state.data[*,0]),order+1)
+  print,'center, width',centerarr[j],widtharr[j],centerarr[j]-widtharr[j],centerarr[j]+widtharr[j]
+  
+  ;lower extraction limit
+  bottomint=fix(centerarr[j]-widtharr[j]+1.0)>1
+  bottomremainder=abs(bottomint-(centerarr[j]-widtharr[j]+1.0))
+  
+  ;upper extraction limit
+  topint=fix(centerarr[j]+widtharr[j])<(n_elements(state.data[0,*])-2)
+  topremainder=(centerarr[j]+widtharr[j])-topint
+  
+  ;calculate array to extract
+  xarr_small=indgen(topint-bottomint+1)+bottomint
+  
+  ;calculate array for whole column
+  xarr_big=findgen(n_elements(state.ydata))
+  
+  ;double check that the extraction ranges are actually the same.
+  if min(xarr_small) ne bottomint then print,'WARNING, THE EXTRACTION RANGES ARE DIFFERENT.'
+  if max(xarr_small) ne topint    then print,'WARNING, THE EXTRACTION RANGES ARE DIFFERENT.'
+  PRINT,'Extracting from ',bottomint,' to ',topint,'    ',n_elements(xarr_small),' elements'
+  print,'with remainder ',bottomremainder,' and ',topremainder
+
+  ;STEP2 (steps from horne 1986 extraction paper... step 1 was flatfielding)
+  variance=state.var_img
+  for i=0,n_elements(state.data[*,0])-1 do begin
+  
+    ;STEP3  (calculate sky)
+    result=bmep_fit_sky(state.data[i,*],bkgndl,bkgndr,order,bkgnd_naverage)
+    SKY=poly(xarr_small,result)
+    sky_reslut_arr[i,*]=result
+    
+    ;step4 (extract spectrum and error)
+    ;remainder is OUTWARDS from the center...
+    if bottomremainder gt 0 and bottomint gt 0 then begin
+      low=state.data[i,bottomint-1]
+      lowerr=variance[i,bottomint-1]
+      high=state.data[i,bottomint]
+      higherr=variance[i,bottomint]
+      botadd= low + ((high - low)*( bottomremainder))
+      botadderr= lowerr + ((higherr - lowerr)*( bottomremainder))
+      botadd= botadd * (1.0 - bottomremainder); multi by area
+      botadderr= botadderr * (1.0 - bottomremainder); multi by area
+      endif else botadd=0.0
+    if topremainder gt 0 and topint lt n_elements(state.data[0,*])-1 then begin
+      low=state.data[i,topint+1]
+      lowerr=variance[i,topint+1]
+      high=state.data[i,topint]
+      higherr=variance[i,topint]
+      topadd= low + ((high - low)*(1.0 - topremainder) )
+      topadderr= lowerr + ((higherr - lowerr)*(1.0 - topremainder) )
+      topadd= topadd * (topremainder); multi by area
+      topadderr= topadderr * (topremainder)
+      endif else topadd=0.0
+    f=[f,total(state.data[i,bottomint:topint] - sky)+topadd+botadd]
+    ferr=[ferr,sqrt(total(variance[i,bottomint:topint])+botadderr+topadderr)]
+    
+    
+;    if i gt 300 and i lt 400 then begin
+;      !p.multi=[0,1,1]
+;      plot,state.data[i,*]
+;      oplot,[bottomint,topint],replicate(max(state.data[i,*]),2)
+;      oplot,[bottomint-bottomremainder,topint+topremainder],replicate(max(state.data[i,*]),2)*0.85
+;      wait,0.1
+;      endif
+  endfor ; looping through i, the number of columns...
+  
+  ;===OPTIMAL===================================================
+  ;optimal extraction based on horne 1989
+  ;step 5 (calculate p)
+  
+  ;figure out p from cross section and use only that.
+  if singlep then begin
+    if slidep then message,'insanity occured. only single p or slide p allowed'
+    
+    FORWARD_FUNCTION bmep_find_p
+    ;calculate p
+    p=bmep_find_p(state,bkgndl,bkgndr,order,bottomint,topint,printp,fitgaussp,plotp,xarr_big,bkgnd_naverage)
+    
+    ;plot p on the plot
+    plotshift=poly(centerarr[j],bmep_fit_sky(state.ydata,bkgndl,bkgndr,order,bkgnd_naverage))
+    pscale=(state.ydata[centerarr[j]]-plotshift)/max(p)
+;    pmulti_save=!p.multi
+;    if j gt 1 then !p.multi[0]=1
+    oplot,(p*pscale + plotshift),color=255,linestyle=3
+;    !p.multi[0]=1+j*2
+  endif
+  
+  ;set up vars
+  parr=replicate(0.0,n_elements(state.data[*,0]),n_elements(state.data[0,*]))
+  img2d_nobkgnd=replicate(0.0,n_elements(state.data[*,0]),n_elements(state.data[0,*]))
+  sky_residuals=replicate(0.0,n_elements(state.data[*,0]))
+  totalpixflagged=0
+  
+  ;loop through columns
+  for i=0,n_elements(state.data[*,0])-1 do begin
+  
+    ;if spectrum is UNDERSAMPLED in the spatial direction,
+    ;p (the fraction of light in each pixel) could change as
+    ;a function of wavelength.  If this is true, p should be
+    ;reevaluated as a function of position. The way I do this
+    ;pretty much only works for anything bright.
+    ;(step 5) Alternate version of step 5...
+    if slidep then begin
+      if singlep then message,'insanity occured. only single p or slide p allowed'
+      p=bmep_find_p_slide(state,pwindowsize,i,f,xarr_small)
+    endif
+    
+    ;step 7 (mask cosmic rays)
+    ;calculate range over which we care about cosmic rays
+    if keyword_set(revisevar) then bmep_calc_cosmic_rays,i,bkgndl,bkgndr,bottomint,topint,state,totalpixflagged,$
+      xarr_big,sky_reslut_arr,p,f,cosmic_sigma,badPixelMask,sky_residuals,n_iterate_cosmic,$
+      order,xarr_small,bkgnd_naverage,max_rays_per_col,variance,ferr $
+    else badPixelMask=replicate(1.0,n_elements(xarr_big))
+    
+    ;swapped steps 6 and 7 to use better flux estimation after removing cosmic spikes.
+    ;step 6 (Revise errors) (dont revise for MOSFIRE)
+    if keyword_set(revisevar) then var_opt=poly(xarr_big,sky_reslut_arr[i,*]) + f[i]*p $
+    else var_opt=variance[i,*]
+    
+    ;step 8
+    ;try to not divide by 0.
+    index=where(var_opt[xarr_small] eq 0.0 or var_opt[xarr_small] eq 99.00,count)
+    if count gt 0 then begin
+      ;          print,i,count,' number of var_opt bade '
+      ;          print,index
+      ;places with 0 variance are considered bad
+      badPixelMask[xarr_small[index]]=0.0
+      ;though they are still in the denominator, so set
+      ;their value to 1.0 temporarily.
+      ;these points are masked, so their value doesn't matter
+      var_opt[xarr_small[index]]=1.0
+    endif ;else begin
+    
+      
+      xarr_small_wider=findgen(topint-bottomint+3)+bottomint-1
+      data=[botadd,reform(state.data[i,xarr_small]),topadd]
+      p[bottomint-1]=p[bottomint]/2.0
+      p[topint+1]=p[topint]/2.0
+      p=p/total(p)
+      areaarr=replicate(1.0,n_elements(xarr_small_wider))
+      areaarr[0]=(1.0 - bottomremainder)
+      areaarr[-1]=topremainder
+;      endif else begin
+;        xarr_small_wider=xarr_small
+;        data=state.data[i,xarr_small]
+;        areaarr=replicate(1.0,n_elements(xarr_small_wider))
+;        endelse
+    
+    ;calc optimal flux as in horne
+    numerator=total(areaarr*badPixelMask[xarr_small_wider]*p[xarr_small_wider]*$
+      (state.data[i,xarr_small_wider] - poly(xarr_small_wider,sky_reslut_arr[i,*]))/var_opt[xarr_small_wider])
+    denominator=total(badPixelMask[xarr_small_wider]*p[xarr_small_wider]*p[xarr_small_wider]/var_opt[xarr_small_wider])
+    if denominator ne 0 then flux_opt=numerator/denominator else flux_opt=0.0
+    
+    ;calc optimal flux error as in horne.
+    numerator=total(areaarr*badPixelMask[xarr_small_wider]*p[xarr_small_wider]) ;
+    denominator=total(badPixelMask[xarr_small_wider]*p[xarr_small_wider]*p[xarr_small_wider]/var_opt[xarr_small_wider])
+    if denominator ne 0 then err_opt=sqrt(abs(numerator/denominator)) else err_opt=0.0
+    
+    ;undo the damage from setting pixels with zero variance to one
+    if count gt 0 then var_opt[xarr_small_wider[index]]=0.0
+    
+    fopt=[fopt,flux_opt] ;!!!!!!!!!!!!
+    fopterr=[fopterr,err_opt]
+    
+    img2d_nobkgnd[i,*]=state.data[i,*] - poly(findgen(n_elements(state.data[i,*])),sky_reslut_arr[i,*])
+    parr[i,*]=p
+  ;        if i gt 405 and flux_opt eq 0 then stop
+  endfor ; cols of data! - end of the optimal section of extraction.
+  if not quiet then print,'eliminated cosmic rays: ',totalpixflagged
+end ; end of extraction
 
 
 ;
@@ -1081,7 +1281,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
         ;if center of profile was found, plot it
         if n_elements(centerarr) ne 0 then $
           for i=0,n_elements(centerarr)-1 do begin
-          oplot_vert,round(centerarr[i]),minmax(state.ydata),3
+          oplot_vert,centerarr[i],minmax(state.ydata),3
           oplot_vert,round(centerarr[i]-widtharr[i]),minmax(state.ydata),3
           oplot_vert,round(centerarr[i]+widtharr[i]),minmax(state.ydata),3
         endfor
@@ -1094,6 +1294,13 @@ FUNCTION bmep_KeyboardHandler, oWin, $
         if extraction then begin
           for j=0, n_elements(centerarr)-1 do begin
             ;extraction!!
+            subpixeltest=0
+            if subpixeltest eq 1 then $
+            bmep_extraction_subpixel,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
+              printp,fitgaussp,plotp,slidep,pwindowsize,singlep,cosmic_sigma,n_iterate_cosmic,bkgnd_naverage,max_rays_per_col,$
+              $;OUTPUTS
+              F_sp,ferr_sp,Fopt_sp,fopterr_sp,img2d_nobkgnd,parr,sky_reslut_arr,sky_residuals,revisevar=state.revisevar
+              
             bmep_extraction,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
               printp,fitgaussp,plotp,slidep,pwindowsize,singlep,cosmic_sigma,n_iterate_cosmic,bkgnd_naverage,max_rays_per_col,$
               $;OUTPUTS
@@ -1118,6 +1325,8 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               yrange=yr,/nodata
             oplot,state.wavel,f,color=254,psym=3
             oplot,state.wavel,f*skymask
+            if subpixeltest eq 1 then $
+            oplot,state.wavel,f_sp*skymask,color=254
             if overploterr then oploterr,state.wavel,f,ferr,3
             NBINS=state.n_bins
             for k=0,NBINS-1 do begin
@@ -1131,8 +1340,9 @@ FUNCTION bmep_KeyboardHandler, oWin, $
             plot,state.wavel,fopt*skymask,xrange=xr,$
               title='optimal',yrange=yr,/nodata
             oplot,state.wavel,fopt,color=254,psym=3
-            index=where(fopt*skymask ne 0)
             oplot,state.wavel,fopt*skymask
+            if subpixeltest eq 1 then $
+            oplot,state.wavel,fopt_sp*skymask,color=254
             if overploterr then oploterr,state.wavel,fopt,fopterr,3
             for k=0,NBINS-1 do begin
               oplot,[state.wavel[state.l_bins[k]],state.wavel[state.l_bins[k]]],minmax(fopt),color=255
@@ -4004,8 +4214,6 @@ end
 
 
 FUNCTION bmep_MouseDown, oWin, x, y, iButton, KeyMods, nClicks
-  FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
-    bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   state = oWin.UVALUE
   state.x0 = x
   state.y0 = y
@@ -4027,14 +4235,18 @@ FUNCTION bmep_MouseUp, oWin, x, y, iButton
   y0 = state.y0
   print,'mouse up at',x,y
   print,x0,' to ',x
+  print,state.width_scale_factor*x0,' to ',state.width_scale_factor*x
+  x0=round(state.width_scale_factor*x0)
+  x=round(state.width_scale_factor*x)
   
-  if n_elements(state.data[*,0]) gt monitor_width and state.monitorfix eq 1 then begin
-    print,'monitor not wide enough ', (float(n_elements(state.data[*,0]))/float(monitor_width))
-    print,'trying to account for this...'
-    x0=x0* (float(n_elements(state.data[*,0]))/float(monitor_width))
-    x =x * (float(n_elements(state.data[*,0]))/float(monitor_width))
-    print,x0,' to ',x
-  endif
+;  if n_elements(state.data[*,0]) gt monitor_width and state.monitorfix eq 1 then begin
+;    print,'monitor not wide enough ', (float(n_elements(state.data[*,0]))/float(monitor_width))
+;    print,'trying to account for this...'
+;    x0=x0* (float(n_elements(state.data[*,0]))/float(monitor_width))
+;    x =x * (float(n_elements(state.data[*,0]))/float(monitor_width))
+;    print,x0,' to ',x
+;;    print,convert_coord(x0,/device,/to_data),' to ',convert_coord(x0,/device,/to_data)
+;  endif
   
   if x0 eq x then x=x+1
   
