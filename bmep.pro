@@ -704,22 +704,23 @@ pro bmep_extraction_subpixel,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
     if keyword_set(revisevar) then var_opt=poly(xarr_big,sky_reslut_arr[i,*]) + f[i]*p $
     else var_opt=variance[i,*]
     
+    xarr_small_wider=findgen(topint-bottomint+3)+bottomint-1
+    
     ;step 8
     ;try to not divide by 0.
-    index=where(var_opt[xarr_small] eq 0.0 or var_opt[xarr_small] eq 99.00,count)
+    index=where(var_opt[xarr_small_wider] eq 0.0 or var_opt[xarr_small_wider] eq 99.00,count)
     if count gt 0 then begin
       ;          print,i,count,' number of var_opt bade '
       ;          print,index
       ;places with 0 variance are considered bad
-      badPixelMask[xarr_small[index]]=0.0
+      badPixelMask[xarr_small_wider[index]]=0.0
       ;though they are still in the denominator, so set
       ;their value to 1.0 temporarily.
       ;these points are masked, so their value doesn't matter
-      var_opt[xarr_small[index]]=1.0
+      var_opt[xarr_small_wider[index]]=1.0
     endif ;else begin
     
       
-      xarr_small_wider=findgen(topint-bottomint+3)+bottomint-1
       data=[botadd,reform(state.data[i,xarr_small]),topadd]
       p[bottomint-1]=p[bottomint]/2.0
       p[topint+1]=p[topint]/2.0
@@ -1264,6 +1265,17 @@ FUNCTION bmep_KeyboardHandler, oWin, $
       autoextractflag=1 ;flag
       
       usercomment='No Comment'
+      usercommentcode=0
+      usercommentcodeoptions=['nothing unusual',$
+        'visible rotation','possible AGN',$
+        'unusual spatial profile','overlapping another object',$
+        'dithered into another object','object on edge of slit',$
+        'other issue: do not use for science',$
+        'other issue: probably OK to use for science']
+      
+      
+      index=where(state.extrainfo1 eq 'MINW',ct)
+      if ct eq 1 then minw=double(state.extrainfo2[index[0]]) else minw=double(-1)
       
       ;normalize cause of errors.
       state.ydataerr=sqrt(state.ydataerr)/max(state.ydata) ; convert error to stddev
@@ -1294,7 +1306,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
         if extraction then begin
           for j=0, n_elements(centerarr)-1 do begin
             ;extraction!!
-            subpixeltest=0
+            subpixeltest=1
             if subpixeltest eq 1 then $
             bmep_extraction_subpixel,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
               printp,fitgaussp,plotp,slidep,pwindowsize,singlep,cosmic_sigma,n_iterate_cosmic,bkgnd_naverage,max_rays_per_col,$
@@ -1325,8 +1337,8 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               yrange=yr,/nodata
             oplot,state.wavel,f,color=254,psym=3
             oplot,state.wavel,f*skymask
-            if subpixeltest eq 1 then $
-            oplot,state.wavel,f_sp*skymask,color=254
+;            if subpixeltest eq 1 then $
+;            oplot,state.wavel,f_sp*skymask,color=254
             if overploterr then oploterr,state.wavel,f,ferr,3
             NBINS=state.n_bins
             for k=0,NBINS-1 do begin
@@ -1341,8 +1353,8 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               title='optimal',yrange=yr,/nodata
             oplot,state.wavel,fopt,color=254,psym=3
             oplot,state.wavel,fopt*skymask
-            if subpixeltest eq 1 then $
-            oplot,state.wavel,fopt_sp*skymask,color=254
+;            if subpixeltest eq 1 then $
+;            oplot,state.wavel,fopt_sp*skymask,color=254
             if overploterr then oploterr,state.wavel,fopt,fopterr,3
             for k=0,NBINS-1 do begin
               oplot,[state.wavel[state.l_bins[k]],state.wavel[state.l_bins[k]]],minmax(fopt),color=255
@@ -1431,7 +1443,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               ;exten 0
               header=bmep_make_hdr('',extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
                 gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,$
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,usercommentcode,usercommentcodeoptions,$
                 gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
                 gamp_err, glinear_err,bkgndl,bkgndr, /exten)
               writefits,state.savepath+fitsfilenm+'.1d.fits','',header
@@ -1439,7 +1451,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               ;exten 1
               header=bmep_make_hdr(flux_opt,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
                 gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,$
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,usercommentcode,usercommentcodeoptions,$
                 gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
                 gamp_err, glinear_err,bkgndl,bkgndr,/image)
               writefits,state.savepath+fitsfilenm+'.1d.fits',flux_opt,header,/append
@@ -1447,7 +1459,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               ;exten 2
               header=bmep_make_hdr(erropt,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
                 gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,$
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,usercommentcode,usercommentcodeoptions,$
                 gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
                 gamp_err, glinear_err,bkgndl,bkgndr,/image)
               writefits,state.savepath+fitsfilenm+'.1d.fits',erropt,header,/append
@@ -1455,7 +1467,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               ;exten 3
               header=bmep_make_hdr(flux,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
                 gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,$
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,usercommentcode,usercommentcodeoptions,$
                 gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
                 gamp_err, glinear_err,bkgndl,bkgndr,/image)
               writefits,state.savepath+fitsfilenm+'.1d.fits',flux,header,/append
@@ -1463,7 +1475,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               ;exten 4
               header=bmep_make_hdr(err,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
                 gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,$
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,usercommentcode,usercommentcodeoptions,$
                 gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
                 gamp_err, glinear_err,bkgndl,bkgndr,/image)
               writefits,state.savepath+fitsfilenm+'.1d.fits',err,header,/append
@@ -1471,7 +1483,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               ;exten 5
               header=bmep_make_hdr(state.ydata,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
                 gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,$
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,usercommentcode,usercommentcodeoptions,$
                 gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
                 gamp_err, glinear_err,bkgndl,bkgndr,/image,/no_wave_info)
               writefits,state.savepath+fitsfilenm+'.1d.fits',state.ydata,header,/append
@@ -1479,11 +1491,45 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               ;exten 6
               header=bmep_make_hdr(state.ydataerr,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
                 gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,$
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,usercommentcode,usercommentcodeoptions,$
                 gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
                 gamp_err, glinear_err,bkgndl,bkgndr,/image,/no_wave_info)
-                
               writefits,state.savepath+fitsfilenm+'.1d.fits',state.ydataerr,header,/append
+              
+              
+               ;exten 7
+              header=bmep_make_hdr(Fopt_sp,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
+                gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,usercommentcode,usercommentcodeoptions,$
+                gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
+                gamp_err, glinear_err,bkgndl,bkgndr,/image)
+              writefits,state.savepath+fitsfilenm+'.1d.fits',flux_opt,header,/append
+              
+              ;exten 8
+              header=bmep_make_hdr(fopterr_sp,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
+                gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,usercommentcode,usercommentcodeoptions,$
+                gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
+                gamp_err, glinear_err,bkgndl,bkgndr,/image)
+              writefits,state.savepath+fitsfilenm+'.1d.fits',erropt,header,/append
+              
+              ;exten 9
+              header=bmep_make_hdr(F_sp,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
+                gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,usercommentcode,usercommentcodeoptions,$
+                gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
+                gamp_err, glinear_err,bkgndl,bkgndr,/image)
+              writefits,state.savepath+fitsfilenm+'.1d.fits',flux,header,/append
+              
+              ;exten 10
+              header=bmep_make_hdr(ferr_sp,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
+                gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
+                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,usercommentcode,usercommentcodeoptions,$
+                gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
+                gamp_err, glinear_err,bkgndl,bkgndr,/image)
+              writefits,state.savepath+fitsfilenm+'.1d.fits',err,header,/append
+              
+              
               revisevar=0
               print,'saved ',fitsfilenm
               
@@ -1679,8 +1725,10 @@ if key eq '?' then begin
   print,'h - Help display sorted alphabetically'
   print,'0 - stop command for debugging'
   print,'k - add a comment to the header'
+  print,'K - TYPE a comment to the header'
   print
   print,'---Plotting options---'
+  print,'A - Toggle Auto-width calculator (needs statistics (r))'
   print,'F - Toggle on viewing the sky mask'
   print,'p - Toggle plotting p (shown in red)'
   print,'r - Get statistics from an area (use only after extracting)'
@@ -1705,7 +1753,6 @@ if key eq '?' then begin
   print,'d - Delete all extraction points'
   print,'w - Decrease width of extraction area'
   print,'W - Increase width of extraction area'
-  print,'A - Toggle Auto-width calculator (needs statistics (r))'
   print,'1 - reset object num'
   print,'2 - set object num to 2'
   print,'3 - set object num to 3'
@@ -1740,6 +1787,7 @@ if key eq 'h' then begin
   print,'h - Help display sorted alphabetically'
   print,'i - Toggle flag to not automatically extract later'
   print,'k - add a comment to the header'
+  print,'K - TYPE a comment to the header'
   print,'m - Mark an object automatically (and do sky region)'
   print,'M - Change width for "m" fit'
   print,'n - Mark an object where the cursor is'
@@ -1771,7 +1819,14 @@ if key eq 'i' then begin
   
 ;add a user comment
 if key eq 'k' then begin
-  print,'enter user comment (currently "'+usercomment+'"'
+  forprint,ssi(indgen(n_elements(usercommentcodeoptions)))+' ',usercommentcodeoptions
+  print,'enter user comment code (currently "'+ssi(usercommentcode)+'")'
+  read,usercommentcode
+  endif
+    
+;add a user comment
+if key eq 'K' then begin
+  print,'enter user comment (currently "'+usercomment+'")'
   read,usercomment
   endif
   
@@ -1825,21 +1880,17 @@ if key eq 'm' then begin
     print,'width   : ',coeff[2],' pm ',gauss_sigma[2],' estimate was ',estimates[2]
     print,'linear  : ',coeff[3],' pm ',gauss_sigma[3],' estimate was ',estimates[3]
     ;print,'quad    : ',coeff[4],' pm ',gauss_sigma[4],' estimate was ',estimates[4]
-    fwhm_fit=2.0*SQRT(2.0*ALOG(2.0))*coeff[2]
-    print,'2xfwhm   : ',fwhm_fit
+    fwhm_fit=double(2.0*SQRT(2.0*ALOG(2.0))*coeff[2])
     print,'r-chisqr : ',chisq/float(n_elements(yfit)-1.0)
     if coeff[1] gt 0 and coeff[1] lt n_elements(state.ydata) then begin
 
       
       ;check min width
-      index=where(state.extrainfo1 eq 'MINW',ct)
-      if ct eq 1 then begin
-        minw=state.extrainfo2[index[0]]
-        print,'minw is ',minw
-        print,'fwhmx2 is ',fwhm_fit
-        if minw gt 0 and fwhm_fit le minw then fwhm_fit=minw
-        print,'fwhmx2 is ',fwhm_fit,' after minw correction'
-      endif
+      print,'minw is ',minw
+      print,'fwhmx2 is ',fwhm_fit
+      if minw gt 0 and fwhm_fit le minw then fwhm_fit=minw
+      print,'fwhmx2 is ',fwhm_fit,' after minw correction'
+
       
       ;moments
       mom1=[mom1,total(xfit*yfit)/total(yfit)]
@@ -1850,7 +1901,7 @@ if key eq 'm' then begin
       chisq=chisq/float(n_elements(yfit)-1.0)
       
       
-      centerarr=[centerarr,coeff[1]]
+      centerarr=[centerarr,double(coeff[1])]
       widtharr=[widtharr,fwhm_fit]
       print,'centerarr:',centerarr
       print,'widtharr:',widtharr
@@ -1887,22 +1938,22 @@ endif ; key eq m
 if key eq 'n' then begin
   cursor,xpos,ypos,/nowait
   if xpos gt 0 and xpos lt n_elements(state.ydata) then begin
-    centerarr=[centerarr,round(xpos)]
-    widtharr=[widtharr,round(default_width)]
+    centerarr=[centerarr,double(xpos)]
+    widtharr=[widtharr,double( (minw lt 0) ? default_width:minw)]
     gausschiarr=[gausschiarr,-1.0]
     wbyhand=[wbyhand,1]
     cbyhand=[cbyhand,1]
     mom1=[mom1,-1.0]
     mom2=[mom2,-1.0]
-    slitloss=[slitloss,bmep_calc_slitloss(default_width/2.355)]
-    gwidth=[gwidth,-99]
-    gcenter=[gcenter,-99]
-    gamp=[gamp,-99]
-    glinear=[glinear,-99]
-    gwidth_err=[gwidth_err,-99]
-    gcenter_err=[gcenter_err,-99]
-    gamp_err=[gamp_err,-99]
-    glinear_err=[glinear_err,-99]
+    slitloss=[slitloss,bmep_calc_slitloss(widtharr[-1]/2.355)]
+    gwidth=[gwidth,-99.]
+    gcenter=[gcenter,-99.]
+    gamp=[gamp,-99.]
+    glinear=[glinear,-99.]
+    gwidth_err=[gwidth_err,-99.]
+    gcenter_err=[gcenter_err,-99.]
+    gamp_err=[gamp_err,-99.]
+    glinear_err=[glinear_err,-99.]
     print,'centers ',centerarr
     print,'widths ',widtharr
   endif
@@ -2060,7 +2111,7 @@ endif
 if key eq 'x' then begin
   cursor,leftxpos,ypos,/nowait
   print,leftxpos
-  print,'hit x again'
+  print,'hit x again (NOTE: hit "x" twice without moving the cursor to expand the window out to full range)'
   key=' '
   while key ne 'x' do key=get_kbrd()
   cursor,rightxpos,ypos,/nowait
@@ -2071,24 +2122,20 @@ if key eq 'x' then begin
     rightxpos=max(state.wavel)
   endif ; backwards
   xr=[leftxpos,rightxpos]
-;          temp=1.123
-;          print,'enter xmin ',xr[0]
-;          read,temp
-;          xr[0]=temp
-;          print,'enter xmax ',xr[1]
-;          read,temp
-;          xr[1]=temp
 endif
 
 ;guess redshift for header purposes
 if key eq 'X' then begin
-  IF N_ELEMENTS(centerarr) gt 1 then goto, Xexit
+  IF N_ELEMENTS(centerarr) gt 1 then begin 
+    print,'DO OBJECTS ONE AT A TIME.'
+    goto, Xexit
+    endif
   nofit=0
   !P.MULTI=[0,1,1]
   xr_save=xr
   cursor,leftxpos,ypos,/nowait
   print,leftxpos
-  print,'hit X again'
+  print,'hit X again (NOTE: fitting a doublet might not work so well)'
   key=' '
   while key ne 'X' do key=get_kbrd()
   cursor,rightxpos,ypos,/nowait
@@ -2544,7 +2591,7 @@ end
 
 function bmep_make_hdr,data_make,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
     gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-    wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,$
+    wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,usercommentcode,usercommentcodeoptions,$
     gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, gamp_err, glinear_err,$
     bkgndl,bkgndr,exten=exten,image=image,no_wave_info=no_wave_info
 
@@ -2614,7 +2661,10 @@ sxaddpar, Header, 'COMMENT',' Exten 4: Boxcar extraction error bars'
 sxaddpar, Header, 'COMMENT',' Exten 5: Light profile'
 sxaddpar, Header, 'COMMENT',' Exten 6: Light profile error bars' 
 sxaddpar, Header, 'COMMENT',' Anything called a "flag" means 1=yes and 0=no'
-sxaddpar, Header, 'UCOMMENT',usercomment
+sxaddpar, Header, 'UCOMMENT',usercomment,' Comment typed by user'
+sxaddpar, Header, 'UCODE',usercommentcode,' Code for commeny given by user.'
+sxaddpar, Header, 'UCMEAN',usercommentcodeoptions[usercommentcode],' Meaning of "UCODE"'
+
 
 if keyword_set(no_wave_info) then begin
   sxaddpar,Header,'CRVAL1',1
@@ -4040,7 +4090,8 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
 ;      index=where(noise_img eq 99,/null)
 ;      sciimg[index]=0.0
 ;      noise_img[index]=0.0
-      index=where(finite(noise_img) eq 0,/null)
+      index=where(finite(noise_img) eq 0,ct,/null)
+      print,'there are ',ct,' nan vals'
       sciimg[index]=0.0
       noise_img[index]=0.0
       noise_img=double(noise_img)
@@ -4054,9 +4105,12 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
       nx=n_elements(sciimg[*,0])
       
       ;snr image
+      index=where(var_img ne 0,ct)
+      snrimg=sciimg
+      snrimg[index]=abs(sciimg[index]/sqrt(var_img[index]))
       index=where(var_img eq 0,ct)
-      if ct ne 0 then var_img[index]=9801.0
-      snrimg=abs(sciimg/sqrt(var_img))
+      snrimg[index]=0.0
+      
       snr2sigCut=snrimg
       index=where(snrimg lt 2.,ct)
       if ct gt 0 then snr2sigCut[index]=0.0
@@ -4109,7 +4163,7 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
       big_img[*,ny*0:ny*1-1]=bytscl(sciimg,top=255,/NAN,$
         min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))   ;science img
       big_img[*,ny*1:ny*2-1]=bytscl(snr2sigCut,top=255,/NAN,$
-        min=0.0,max=3.5)   ;snr img
+        min=0.0,max=2.0)   ;snr img
         
         
       ;calculate where object SHOULD be!
@@ -4153,6 +4207,10 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
         'CRPIX1',$
         'CTYPE1',$
         'EXPTIME',$
+        'TARGNAME',$
+        'MASKNAME',$
+        'DATE-OBS',$
+        'UT_FIRST',$
         'FILNM',$
         'MSKNM',$
         'FILTNM',$
@@ -4168,6 +4226,10 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
         string(sxpar(shdr,'CRPIX1')),$
         'LINEAR',$
         string(sxpar(shdr,'EXPTIME')),$
+        string(sxpar(shdr,'TARGNAME')),$
+        string(sxpar(shdr,'MASKNAME')),$
+        string(sxpar(shdr,'DATE-OBS')),$
+        string(sxpar(shdr,'UT_FIRST')),$
         filename,$
         maskname,$
         filtername,$
@@ -4184,6 +4246,10 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
         ' ',$
         ' ',$
         ' total exposure time (seconds)',$
+        ' target name',$
+        ' mask name ',$
+        ' date observed',$
+        ' ut of first obs',$
         ' name of file',$
         ' name of mask',$
         ' name of filter',$
@@ -4266,7 +4332,8 @@ FUNCTION bmep_MouseUp, oWin, x, y, iButton
       
       if state.cont_mode eq 1 then begin
         noiseguess=[]
-        for j=0,n_elements(index)-1 do noiseguess=[noiseguess,total(state.var_img[index[j],*])]
+        ny=n_elements(state.var_img[0,*])
+        for j=0,n_elements(index)-1 do noiseguess=[noiseguess,total(state.var_img[index[j],20:ny-21])]
         goodpix=where(noiseguess lt median(noiseguess))
         badpix=where(noiseguess ge median(noiseguess))
         
@@ -4289,11 +4356,18 @@ FUNCTION bmep_MouseUp, oWin, x, y, iButton
   
   ;;normalize
   ;state.ydata=state.ydata/max(state.ydata)
-  
+  if state.cont_mode eq 1 then begin
+    !P.multi=[0,1,2]
+    plot,noiseguess,yr=[bmep_percent_cut(noiseguess,5),bmep_percent_cut(noiseguess,95)]
+    oplot,findgen(n_elements(noiseguess)),replicate(median(noiseguess),n_elements(noiseguess)),COLOR=255
+    ENDIF else !P.multi=[0,1,1]
   plot,state.ydata,/ynozero
   oplot,replicate(0.0,n_elements(state.data)),color=255.+255.*255.
   index=where(state.extrainfo1 eq 'YEXPECT',ct)
   if ct eq 1 then oplot,[float(state.extrainfo2[index]),float(state.extrainfo2[index])],minmax(state.ydata),color=255.+255.*255.
+  
+  
+  
   
   ;add in the collapsed area to header info
   if state.n_bins ge 10 then print,'too many bins' else begin
@@ -4415,8 +4489,15 @@ print,3
 plot,findgen(100);check if plotting works
 oplot_vert,20,[0,100]
 print,4
-
-x=image(findgen(100,100))
+seed=1234d
+img=randomu(seed,1000,1000)
+npix=float(n_elements(img))
+index1=where(img gt .95,ct1)
+index2=where(img le .95,ct2)
+img[index1]=255
+img[index2]=0
+x=image(img)
+wait,1
 x.close
 print,5
 print,'BMEP_MOSDEF_2D is ',getenv('BMEP_MOSDEF_2D')
@@ -4763,6 +4844,8 @@ pro bmep,path_to_output=path_to_output
         snr2sigCut=snrimg
         index=where(snr2sigCut lt 2.0,/null)
         snr2sigCut[index]=0.0
+        index=where(snr2sigCut gt 3.0,/null)
+        snr2sigCut[index]=3.0
         
         ;mess with these to change how an image is viewed. (scaling)
         botpercent=10.0
@@ -4771,12 +4854,15 @@ pro bmep,path_to_output=path_to_output
         big_img=findgen(nx,(ny*4))
         big_img[*,ny*0:ny*1-1]=bytscl(sciimg,top=255,/NAN,$
           min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))   ;science img
-        big_img[*,ny*1:ny*2-1]=bytscl(var_img,top=255,/NAN,$
-          min=bmep_percent_cut(var_img,botpercent),max=bmep_percent_cut(var_img,toppercent))  ;var img
-        big_img[*,ny*2:ny*3-1]=bytscl(snrimg,top=255,/NAN,$
-          min=bmep_percent_cut(abs(sciimg),5.0),max=bmep_percent_cut(abs(sciimg),95.0))   ;snr img
-        big_img[*,ny*3:ny*4-1]=bytscl(snr2sigCut,top=255,/NAN,$
+        big_img[*,ny*1:ny*2-1]=bytscl(snr2sigCut,top=255,/NAN,$
           min=2.0,max=3.0)   ;snr img
+        
+;        big_img[*,ny*1:ny*2-1]=bytscl(var_img,top=255,/NAN,$
+;          min=bmep_percent_cut(var_img,botpercent),max=bmep_percent_cut(var_img,toppercent))  ;var img
+;        big_img[*,ny*2:ny*3-1]=bytscl(snrimg,top=255,/NAN,$
+;          min=bmep_percent_cut(abs(sciimg),5.0),max=bmep_percent_cut(abs(sciimg),95.0))   ;snr img
+;        big_img[*,ny*3:ny*4-1]=bytscl(snr2sigCut,top=255,/NAN,$
+;          min=2.0,max=3.0)   ;snr img
           
         ;resize big_img if really big in y direction...
         if ny*4 gt 1000 then begin
