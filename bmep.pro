@@ -3948,7 +3948,9 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
         'DEC',$
         'OFFSET',$
         'MAGNITUD',$
-        'PRIORITY']
+        'PRIORITY',$
+        'SCALING',$
+        'PA']
         
         extrainfo3=[$
         ' ',$
@@ -3978,47 +3980,55 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
         ' Object Dec (Degrees)',$
         ' Offset spectrum wrt center of slit [arscec]',$
         ' Magnitude from MAGMA input files (H band)',$
-        ' Priority used in MAGMA   ']
+        ' Priority used in MAGMA   ',$
+        ' Scaling factor from cts/s to erg/s/cm^2/Angstrom',$
+        $
+        ' Slit position angle ']
        
-              ;
+              sxaddpar,hdr,'COMMENT',' Exten 6: Light profile error bars' 
               for k=0,n_elements(extrainfo1)-1 do sxaddpar,hdr,extrainfo1[k],sxpar(D2hdr,extrainfo1[k]),extrainfo3[k]
               sxaddpar,hdr,'TARGNAME',sxpar(hdr,'TARGNAME')
-                              sxaddpar,hdr,'WIDTH',newwidth,/savecomment
-                              sxaddpar,hdr,'MINW',minw,/savecomment
-                              sxaddpar,hdr,'YEXPECT',ypos,/savecomment
-                              sxaddpar,hdr,'YPOS',newcenter,/savecomment
-                              sxaddpar,hdr,'MOM1',mom1,/savecomment
-                              sxaddpar,hdr,'MOM2',mom2,/savecomment
-                              sxaddpar,hdr,'GAUSRCHI',chisq,' Reduced Chi sqr of gauss fit to Y profile'
-                              sxaddpar, hdr, 'GWIDTH', coeff[2], ' Sigma of gaussian fit'
-                              sxaddpar, hdr, 'GCENT', coeff[1], ' Central pixel of gaussian fit'
-                              sxaddpar, hdr, 'GAMP', coeff[0], ' Amplitude of gaussian fit'
-                              sxaddpar, hdr, 'GLINEAR', coeff[3], ' Linear continuum of gaussian fit'
-                              sxaddpar, hdr, 'GWIDTH_E', gauss_sigma[2], ' 1sigma Error in Sigma of gaussian fit'
-                              sxaddpar, hdr, 'GCENT_E', gauss_sigma[1], ' 1sigma Error in CENTRAL pixel of gaussian fit'
-                              sxaddpar, hdr, 'GAMP_E', gauss_sigma[0],  ' 1sigma Error in Amplitude of gaussian fit'
-                              sxaddpar, hdr, 'GLINE_E', gauss_sigma[3], ' 1sigma Error in Linear continuum of gaussian fit'
-                              
+              sxaddpar,hdr,'WIDTH',newwidth,/savecomment
+              sxaddpar,hdr,'MINW',minw,/savecomment
+              sxaddpar,hdr,'YEXPECT',ypos,/savecomment
+              sxaddpar,hdr,'YPOS',newcenter,/savecomment
+              sxaddpar,hdr,'MOM1',mom1,/savecomment
+              sxaddpar,hdr,'MOM2',mom2,/savecomment
+              sxaddpar,hdr,'GAUSRCHI',chisq,' Reduced Chi sqr of gauss fit to Y profile'
+              sxaddpar, hdr, 'GWIDTH', coeff[2], ' Sigma of gaussian fit'
+              sxaddpar, hdr, 'GCENT', coeff[1], ' Central pixel of gaussian fit'
+              sxaddpar, hdr, 'GAMP', coeff[0], ' Amplitude of gaussian fit'
+              sxaddpar, hdr, 'GLINEAR', coeff[3], ' Linear continuum of gaussian fit'
+              sxaddpar, hdr, 'GWIDTH_E', gauss_sigma[2], ' 1sigma Error in Sigma of gaussian fit'
+              sxaddpar, hdr, 'GCENT_E', gauss_sigma[1], ' 1sigma Error in CENTRAL pixel of gaussian fit'
+              sxaddpar, hdr, 'GAMP_E', gauss_sigma[0],  ' 1sigma Error in Amplitude of gaussian fit'
+              sxaddpar, hdr, 'GLINE_E', gauss_sigma[3], ' 1sigma Error in Linear continuum of gaussian fit'
+              FOR K=1,sxpar(D2hdr,'N_OBS') do begin
+                sxaddpar,hdr,'FRAME'+ssi(k),sxpar(D2hdr,'FRAME'+ssi(k))
+                sxaddpar,hdr,'WEIGHT'+ssi(k),sxpar(D2hdr,'WEIGHT'+ssi(k))
+                sxaddpar,hdr,'SEEING'+ssi(k),sxpar(D2hdr,'SEEING'+ssi(k))
+                sxaddpar,hdr,'OFFSET'+ssi(k),sxpar(D2hdr,'OFFSET'+ssi(k))
+                endfor
                             
                               
               
               for k=0,n_elements(extrainfo1)-1 do sxaddpar,hdr0,extrainfo1[k],sxpar(D2hdr,extrainfo1[k]),extrainfo3[k]
-                              sxaddpar,hdr0,'WIDTH',newwidth,/savecomment
-                              sxaddpar,hdr0,'YEXPECT',ypos,/savecomment
-                              sxaddpar,hdr0,'YPOS',newcenter,/savecomment
+              sxaddpar,hdr0,'WIDTH',newwidth,/savecomment
+              sxaddpar,hdr0,'YEXPECT',ypos,/savecomment
+              sxaddpar,hdr0,'YPOS',newcenter,/savecomment
 
-              
-                              writefits,filenames[i],'',hdr0
-                              writefits,filenames[i],fopt,hdr,/append
-                              writefits,filenames[i],fopterr,hdr,/append
-                              writefits,filenames[i],f,hdr,/append
-                              writefits,filenames[i],ferr,hdr,/append
-              
-                              sxaddpar,hdr,'CRVAL1',1
-                              sxaddpar,hdr,'CDELT1',1.0
-                              sxaddpar,hdr,'CRPIX1',1
-                              sxaddpar,hdr,'CTYPE1','LINEAR'
-                              writefits,filenames[i],newydata,hdr,/append
+
+              writefits,filenames[i],'',hdr0
+              writefits,filenames[i],fopt,hdr,/append
+              writefits,filenames[i],fopterr,hdr,/append
+              writefits,filenames[i],f,hdr,/append
+              writefits,filenames[i],ferr,hdr,/append
+
+              sxaddpar,hdr,'CRVAL1',1
+              sxaddpar,hdr,'CDELT1',1.0
+              sxaddpar,hdr,'CRPIX1',1
+              sxaddpar,hdr,'CTYPE1','LINEAR'
+              writefits,filenames[i],newydata,hdr,/append
                 
                 
                 
@@ -4966,14 +4976,16 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
         'OFFSET',$
         'MAGNITUD',$
         'PRIORITY',$
-        'FILNM',$
+        'SCALING',$
         $
+        'PA',$
+        'FILNM',$
         'MSKNM',$
         'FILTNM',$
         'SLITNM',$
+        $
         'ISSTAR',$
         'MINW',$
-        $
         'YEXPECT'$
         ]
         
@@ -5006,14 +5018,16 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
         string(sxpar(shdr,'OFFSET')),$
         string(sxpar(shdr,'MAGNITUD')),$
         string(sxpar(shdr,'PRIORITY')),$
-        filename,$
+        string(sxpar(shdr,'SCALING')),$
         $
+        string(sxpar(shdr,'PA')),$
+        filename,$
         maskname,$
         filtername,$
         slitname, $
+        $
         ssi(isstar), $
         ssf(minwidth), $
-        $
         ssf(yexpect) $
         ]
         
@@ -5047,16 +5061,38 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
         ' Offset spectrum wrt center of slit [arscec]',$
         ' Magnitude from MAGMA input files (H band)',$
         ' Priority used in MAGMA   ',$
-        ' name of file',$
+        ' Scaling factor from cts/s to erg/s/cm^2/Angstrom',$
         $
+        ' Slit position angle ',$
+        ' name of file',$
         ' name of mask for file naming purposes',$
         ' name of filter for file naming purposes',$
         ' name of slit for file naming purposes', $
+        $
         ' Flag if is a star (1 is star, 0 is not)', $
         ' minimum width (-1 default)', $
-        $
         ' expected y position (pixels, shifted by star offset)' $
         ]
+        
+        FOR K=1,sxpar(shdr,'N_OBS') do begin
+          extrainfo1=[extrainfo1,'FRAME'+ssi(k)]
+          extrainfo2=[extrainfo2,STRING(sxpar(shdr,'FRAME'+ssi(k)))]
+          extrainfo3=[extrainfo3,' ']
+          extrainfo1=[extrainfo1,'WEIGHT'+ssi(k)]
+          extrainfo2=[extrainfo2,STRING(sxpar(shdr,'WEIGHT'+ssi(k)))]
+          extrainfo3=[extrainfo3,' ']
+          extrainfo1=[extrainfo1,'SEEING'+ssi(k)]
+          extrainfo2=[extrainfo2,STRING(sxpar(shdr,'SEEING'+ssi(k)))]
+          extrainfo3=[extrainfo3,' ']
+          extrainfo1=[extrainfo1,'OFFSET'+ssi(k)]
+          extrainfo2=[extrainfo2,STRING(sxpar(shdr,'OFFSET'+ssi(k)))]
+          extrainfo3=[extrainfo3,' ']
+          endfor
+        
+        
+        
+        
+        
 ;        forprint,extrainfo1,extrainfo2,extrainfo3
       bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername,wavel,savepath,$
         revisevar=0,extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=0,$
