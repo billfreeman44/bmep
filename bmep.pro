@@ -16,7 +16,7 @@ pro bmep_auto_width_calculator,j,centerarr,state,order,bkgndl,bkgndr,$
   print,'Width & SNR boxcar & SNR optimal   & mean box & mean opt & total flux \\ \hline'
   
   ;loop throught widths to see which is best SNR
-  for test_width=2.0,10.0,0.25 do begin
+  for test_width=2.0,8.0,0.1 do begin
     test_width_arr=replicate(test_width,n_elements(widtharr))
     
     ;extract new profile
@@ -32,14 +32,26 @@ pro bmep_auto_width_calculator,j,centerarr,state,order,bkgndl,bkgndr,$
     momentresult=moment(f[index],sdev=std_dev)
     momentresultopt=moment(fopt[index],sdev=std_devopt)
     
+;    ;print info in style of LaTeX
+;    print,test_width,$ ;width
+;      ' & ',momentresult[0]/std_dev,$ ; snr box
+;      ' & ',momentresultopt[0]/std_devopt,$ ; snr optimal
+;      $;' & ',(momentresultopt[0]/std_devopt)*(momentresult[0]/std_dev),$ ; snr optimal * snr box
+;      ' & ',momentresult[0],$
+;      ' & ',momentresultopt[0],$
+;      ' & ',total(fopt[index]),' \\ \hline' ; mean val   
+
+    
     ;print info in style of LaTeX
     print,test_width,$ ;width
-      ' & ',momentresult[0]/std_dev,$ ; snr box
-      ' & ',momentresultopt[0]/std_devopt,$ ; snr optimal
+      '  ',momentresult[0]/std_dev,$ ; snr box
+      '  ',momentresultopt[0]/std_devopt,$ ; snr optimal
       $;' & ',(momentresultopt[0]/std_devopt)*(momentresult[0]/std_dev),$ ; snr optimal * snr box
-      ' & ',momentresult[0],$
-      ' & ',momentresultopt[0],$
-      ' & ',total(fopt[index]),' \\ \hline' ; mean val
+      '  ',momentresult[0],$
+      '  ',momentresultopt[0],$
+      '  ',total(fopt[index]),' ' ; mean val   
+
+
       
   endfor ; test_width
   ;rerun extraction to fix damage.
@@ -48,7 +60,7 @@ pro bmep_auto_width_calculator,j,centerarr,state,order,bkgndl,bkgndr,$
     cosmic_sigma,n_iterate_cosmic,bkgnd_naverage,max_rays_per_col,$
     gwidth,gcenter,$
     $;OUTPUTS
-    F,ferr,Fopt,fopterr,img2d_nobkgnd,sky_reslut_arr,sky_residuals,revisevar=state.revisevar
+    F,ferr,Fopt,fopterr,img2d_nobkgnd,sky_reslut_arr,sky_residuals,revisevar=state.revisevar,/quiet
   print,'\end{tabular}'
 end
 
@@ -432,6 +444,108 @@ end ; end of extraction
 
 
 ;extract the spectra!! algorithm from horne 1986
+pro bmep_extraction_simple_subpixel,sciimg,var_img,ydata,ypos,width,gcenter,gwidth,f,ferr,fopt,fopterr,p
+
+  FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
+    bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
+
+  f=[]
+  ferr=[]
+  fopt=[]
+  fopterr=[]
+  
+  bottomint=fix(ypos-width+1.0)>1
+  bottomremainder=1.0 - ( ( (ypos-width+1.0)-bottomint) < 1.0)
+  topint=fix(ypos+width)<(n_elements(sciimg[0,*])-2)
+  topremainder=((ypos+width)-topint) < 1.0
+  
+  xarr_small=indgen(topint-bottomint+1)+bottomint
+  xarr_small_wider=findgen(topint-bottomint+3)+bottomint-1
+  xarr_big=findgen(n_elements(ydata))
+
+  ;STEP2 (steps from horne 1986 extraction paper... step 1 was flatfielding)
+  for i=0,n_elements(sciimg[*,0])-1 do begin
+  
+    ;STEP3  (calculate sky)
+    
+    ;step4 (extract spectrum and error)
+    ;remainder is OUTWARDS from the center...
+    botadd= sciimg[i,bottomint-1] * bottomremainder
+    botadderr= var_img[i,bottomint-1] * bottomremainder
+    topadd= sciimg[i,topint+1] * topremainder
+    topadderr= var_img[i,topint+1] * topremainder
+    f=[f,total(sciimg[i,bottomint:topint])+topadd+botadd]
+    ferr=[ferr,sqrt(total(var_img[i,bottomint:topint])+botadderr+topadderr)]
+    
+  endfor ; looping through i, the number of columns...
+  
+  ;optimal extraction based on horne 1989
+  ;step 5 (calculate p)
+  if gcenter lt -1 then message,'error, gcenter lt 0'
+  if gwidth lt -1 then message,'error, gwidth lt 0'
+  xarr_fit=[min(xarr_small)-bottomremainder,float(xarr_small),max(xarr_small)+topremainder]
+  p_small_wider=gaussian(xarr_fit,[1.0,gcenter,gwidth])
+  p_small_wider[0]=p_small_wider[0] * bottomremainder
+  p_small_wider[-1]=p_small_wider[-1] * topremainder
+  
+  p=replicate(0.0,n_elements(xarr_big))
+  p[xarr_small_wider]=p_small_wider
+  p=double(p)
+  if total(p) ne 0 then p=p/total(p)
+
+  
+  ;set up vars
+
+  ;loop through columns
+  for i=0,n_elements(sciimg[*,0])-1 do begin
+;    if bottomremainder lt 0.2 then bottomremainder=0.0
+;    if topremainder lt 0.2 then topremainder=0.0
+    ;recalculate fractions to add to top/bottom of extractions.
+    botadd= sciimg[i,bottomint-1] * bottomremainder
+    botadderr= var_img[i,bottomint-1] * bottomremainder
+    topadd= sciimg[i,topint+1] * topremainder
+    topadderr= var_img[i,topint+1] * topremainder
+    
+    ;step 7 (mask cosmic rays)
+    ;calculate range over which we care about cosmic rays
+    badPixelMask=replicate(1.0,n_elements(xarr_big))
+    
+    ;swapped steps 6 and 7 to use better flux estimation after removing cosmic spikes.
+    ;step 6 (Revise errors) (dont revise for MOSFIRE)
+    var_opt=var_img[i,*]
+    
+    
+    ;step 8
+    col_data=[botadd,reform(sciimg[i,xarr_small]),topadd]
+    var_data=[botadderr,var_opt[xarr_small],topadderr]
+    bp_data=badPixelMask[xarr_small_wider]
+    p_data=p[xarr_small_wider]
+    p_data=p_data/total(p_data)
+    
+    ;try to not divide by 0.
+    index=where(var_data eq 0.0 or var_data eq 99.00,count)
+    if count gt 0 then begin
+      bp_data[index]=0.0
+      var_data[index]=1.0
+    endif ;else begin
+      
+    ;calc optimal flux as in horne
+    numerator=total(bp_data*p_data*col_data/var_data)
+    denominator=total(bp_data*p_data*p_data/var_data)
+    if denominator ne 0 then flux_opt=numerator/denominator else flux_opt=0.0
+    ;calc optimal flux error as in horne.
+    numerator=total(bp_data*p_data) ;
+    denominator=total(bp_data*p_data*p_data/var_data)
+    if denominator ne 0 then err_opt=sqrt(abs(numerator/denominator)) else err_opt=0.0
+    fopt=[fopt,flux_opt] ;!!!!!!!!!!!!
+    fopterr=[fopterr,err_opt]
+  endfor ; cols of data! - end of the optimal section of extraction.
+
+  
+end ; end of extraction
+
+
+;extract the spectra!! algorithm from horne 1986
 pro bmep_extraction,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
     printp,fitgaussp,plotp,slidep,pwindowsize,singlep,cosmic_sigma,$
     n_iterate_cosmic,bkgnd_naverage,max_rays_per_col,gwidth,gcenter,$
@@ -607,7 +721,7 @@ pro bmep_extraction_subpixel,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
   fopt=[]
   fopterr=[]
   sky_reslut_arr=findgen(n_elements(state.data[*,0]),order+1)
-;  print,'center, width, left, right',centerarr[j],widtharr[j],centerarr[j]-widtharr[j],centerarr[j]+widtharr[j]
+  
   
   ;lower extraction limit
   bottomint=fix(centerarr[j]-widtharr[j]+1.0)>1
@@ -627,7 +741,8 @@ pro bmep_extraction_subpixel,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
   ;double check that the extraction ranges are actually the same.
   if min(xarr_small) ne bottomint then print,'WARNING, THE EXTRACTION RANGES ARE DIFFERENT.'
   if max(xarr_small) ne topint    then print,'WARNING, THE EXTRACTION RANGES ARE DIFFERENT.'
-  
+;  print,'center, width, left, right',centerarr[j],widtharr[j],centerarr[j]-widtharr[j],centerarr[j]+widtharr[j]
+;  print,bottomint,bottomremainder,topint,topremainder
   ;STEP2 (steps from horne 1986 extraction paper... step 1 was flatfielding)
   variance=state.var_img
   for i=0,n_elements(state.data[*,0])-1 do begin
@@ -652,12 +767,12 @@ pro bmep_extraction_subpixel,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
   ;===OPTIMAL===================================================
   ;optimal extraction based on horne 1989
   ;step 5 (calculate p)
-  if gcenter[j] gt 0 then begin
+  if gcenter[j] gt -1 then begin
   xarr_fit=[min(xarr_small)-bottomremainder,float(xarr_small),max(xarr_small)+topremainder]
 ;  print,'minmax(xarr_fit)',minmax(xarr_fit)
   p_small_wider=gaussian(xarr_fit,[1.0,gcenter[j],gwidth[j]])
-  p_small_wider[0]=p_small_wider[0] ;* bottomremainder
-  p_small_wider[-1]=p_small_wider[-1] ;* topremainder
+  p_small_wider[0]=p_small_wider[0] * bottomremainder
+  p_small_wider[-1]=p_small_wider[-1] * topremainder
   
   p=replicate(0.0,n_elements(xarr_big))
   p[xarr_small_wider]=p_small_wider
@@ -672,9 +787,11 @@ pro bmep_extraction_subpixel,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
     p=bmep_find_p(state,bkgndl,bkgndr,order,$
     round(centerarr[j]-widtharr[j]),round(centerarr[j]+widtharr[j]),$
     printp,fitgaussp,plotp,xarr_big,bkgnd_naverage)
+    
+    
       plotshift=poly(centerarr[j],bmep_fit_sky(state.ydata,bkgndl,bkgndr,order,bkgnd_naverage))
       pscale=(state.ydata[centerarr[j]]-plotshift)/max(p)
-      oplot,xarr_fit,(p[xarr_small_wider]*pscale + plotshift),color=255,psym=-6
+      oplot,xarr_small_wider,(p[xarr_small_wider]*pscale + plotshift),color=255,psym=-6
     endelse
   
   ;plot p on the plot
@@ -683,9 +800,11 @@ pro bmep_extraction_subpixel,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
   img2d_nobkgnd=replicate(0.0,n_elements(state.data[*,0]),n_elements(state.data[0,*]))
   sky_residuals=replicate(0.0,n_elements(state.data[*,0]))
   totalpixflagged=0
-  
+
   ;loop through columns
   for i=0,n_elements(state.data[*,0])-1 do begin
+;    if bottomremainder lt 0.2 then bottomremainder=0.0
+;    if topremainder lt 0.2 then topremainder=0.0
     ;recalculate fractions to add to top/bottom of extractions.
     botadd= state.data[i,bottomint-1] * bottomremainder
     botadderr= variance[i,bottomint-1] * bottomremainder
@@ -707,16 +826,21 @@ pro bmep_extraction_subpixel,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
     
     ;step 8
     
+
+    
     
     col_data=[botadd,reform(state.data[i,xarr_small]),topadd]
     var_data=[botadderr,var_opt[xarr_small],topadderr]
     bp_data=badPixelMask[xarr_small_wider]
     p_data=p[xarr_small_wider]
+    p_data=p_data/total(p_data)
     
-    
+        
+
     ;try to not divide by 0.
     index=where(var_data eq 0.0 or var_data eq 99.00,count)
     if count gt 0 then begin
+;      print,'var zeroes',i,count
       bp_data[index]=0.0
       var_data[index]=1.0
     endif ;else begin
@@ -737,7 +861,8 @@ pro bmep_extraction_subpixel,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
     
     img2d_nobkgnd[i,*]=state.data[i,*] - poly(findgen(n_elements(state.data[i,*])),sky_reslut_arr[i,*])
   endfor ; cols of data! - end of the optimal section of extraction.
-  if not quiet then print,'eliminated cosmic rays: ',totalpixflagged
+
+;  if not quiet then print,'eliminated cosmic rays: ',totalpixflagged
 end ; end of extraction
 
 
@@ -3478,23 +3603,26 @@ end
 
 
 
-pro bmep_mosdef_rereduce_v01_to_v02
-  stop
+pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
+
   ;setup
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
-  !except=2 ;see division by zero errors instantly.
+  !except=1 ;see division by zero errors instantly.
   astrolib
   starttime=systime(/seconds)
   mwidth=8 ; width to fit a gaussian to...
   !p.multi=[0,1,1]
   ;spawn,'rm reex_*'
   
-  ;creat list of 1d spec
+  ;create list of 1d spec
+  path_to_output=getenv('BMEP_MOSDEF_2D')
+  if path_to_output eq '' then message,'run in terminal window pls'
   
-  if not keyword_set(path_to_output) then path_to_output='~/mosfire/output/idl_output/2D' ; no trailing slash
-  cd,path_to_output+'/1d_extracted',current=original_dir
-  
+  ;get where to save output of extraction program
+  savepath=getenv('BMEP_MOSDEF_1D')
+  cd,savepath,current=original_dir
+
   ;read in list of 1d spectra
 ;  filenames = file_search('co3_01*.1d.fits');for updating only one
   filenames = file_search('*.1d.fits')
@@ -3517,8 +3645,10 @@ pro bmep_mosdef_rereduce_v01_to_v02
     prefixnum++
   endwhile
   
+  
+  
   ;read in redshift data
-  readcol,path_to_output+'/allslits.seplines.zmosfire.qflag.txt',zmask,zslit,zobject,zredshift,format='X,A,I,I,F,X,X,X,X',/SILENT
+;  readcol,path_to_output+'/allslits.seplines.zmosfire.qflag.txt',zmask,zslit,zobject,zredshift,format='X,A,I,I,F,X,X,X,X',/SILENT
   
   
   ;open file to write info
@@ -3538,11 +3668,26 @@ pro bmep_mosdef_rereduce_v01_to_v02
   
   ;open plot to plot to...
   data=readfits(filenames[0],hdr,exten_no=1,/silent)
-  PS_Start, Filename=backup_folder_name+'_'+strcompress(sxpar(hdr,'MSKNM'),/remove_all)+'_comparison.ps',/quiet
+  PS_Start, Filename=backup_folder_name+'_'+sss(sxpar(hdr,'MSKNM'))+'_comparison.ps',/quiet
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   
   ;loop through 1d spectra
   for i=0,n_elements(filenames)-1 do begin
-    old_mask_name=strcompress(sxpar(hdr,'MSKNM'),/remove_all)
+    old_mask_name=sss(sxpar(hdr,'MSKNM'))
     
     ;read in file
     temp=readfits(filenames[i],hdr0,exten_no=0,/silent)
@@ -3550,21 +3695,21 @@ pro bmep_mosdef_rereduce_v01_to_v02
     ydata=readfits(filenames[i],exten_no=5,/silent)
     
     ;start new .ps file for each mask.
-    if strcompress(sxpar(hdr,'MSKNM'),/remove_all) ne old_mask_name then begin
+    if sss(sxpar(hdr,'MSKNM')) ne old_mask_name then begin
       ps_end
       PS_Start, Filename=backup_folder_name+'_'+strcompress(sxpar(hdr,'MSKNM'),/remove_all)+'_comparison.ps',/quiet
     endif
     
     ;move files to backup
-    ;;;;;;;;   spawn,'mv '+filenames[i]+' '+backup_folder_name
+    spawn,'mv '+filenames[i]+' '+backup_folder_name
     
     ;check AUTOEX/WBYHAND/CBYHAND/BLIND flags
     if  $ ;sxpar(hdr,'WBYHAND') eq 1 or
       sxpar(hdr,'AUTOEX')  eq 0 or $
       sxpar(hdr,'CBYHAND') eq 1 or $
       sxpar(hdr,'BLIND')   eq 1 then begin
-      if not sxpar(hdr,'BLIND') then printf,lun,filenames[i]+' not done because of fits hdr flags.'
-      if sxpar(hdr,'BLIND') eq 0 then printf,lun3,filenames[i],' because of fits hdr flags.'
+      if ~sxpar(hdr,'BLIND') then printf,lun,filenames[i]+' not done because of fits hdr flags.'
+      if ~sxpar(hdr,'BLIND') then printf,lun3,filenames[i],' because of fits hdr flags.'
     endif else begin
     
     
@@ -3590,9 +3735,6 @@ pro bmep_mosdef_rereduce_v01_to_v02
         sciimg=readfits(path_to_output+'/'+sci_file_name,D2hdr,exten_no=1,/silent)
         var_img=readfits(path_to_output+'/'+sci_file_name,D2hdr,exten_no=3,/silent)
         ;clean image
-        index=where(var_img eq 99,/null)
-        sciimg[index]=0.0
-        var_img[index]=0.0
         index=where(finite(var_img) eq 0,/null)
         sciimg[index]=0.0
         var_img[index]=0.0
@@ -3600,9 +3742,6 @@ pro bmep_mosdef_rereduce_v01_to_v02
         var_img=var_img*var_img
         index=where(var_img lt 0,ct)
         var_img[INDEX]=ABS(var_img[INDEX])
-        ;        index=where(var_img eq 0,ct)
-        ;        if ct ne 0 then var_img[index]=9801.0
-        ;print,'there are ',ct,' pixels with NEGATIVE value for  variance '
         
         
         ;convert wavel to pixels in new img.
@@ -3629,7 +3768,8 @@ pro bmep_mosdef_rereduce_v01_to_v02
             
             if sxpar(hdr,'CONTMODE') eq 1 then begin
               noiseguess=[]
-              for j=0,n_elements(index)-1 do noiseguess=[noiseguess,total(var_img[index[j],*])]
+              ny=n_elements(var_img[0,*])
+              for j=0,n_elements(index)-1 do noiseguess=[noiseguess,total(var_img[index[j],20:ny-21])]
               goodpix=where(noiseguess lt median(noiseguess))
               badpix=where(noiseguess ge median(noiseguess))
               index=index[goodpix]
@@ -3645,71 +3785,80 @@ pro bmep_mosdef_rereduce_v01_to_v02
         
         ;MASK SPECIFIC ANOMALIES
         newydata2=newydata
-        bot_slit_shift=5
-        case strcompress(sxpar(hdr,'MSKNM'),/remove_all) of
+        bot_slit_shift=-2
+        case sss(sxpar(hdr,'MSKNM')) of
           'ae1_03': begin
           
           ; if sxpar(hdr,'SLITNM') eq 1601 then ypos=ypos-bot_slit_shift
           end
           'ae1_05': begin
-            delta=8
-            if strcompress(sxpar(hdr,'FILTNM'),/remove_all) eq 'H' then delta=9
-            ypos=ypos+delta
-            if sxpar(hdr,'SLITNM') eq 10454 then ypos=ypos-delta
-            if sxpar(hdr,'SLITNM') eq 1002 then ypos=ypos-bot_slit_shift
+            delta=0
           end
           'ae2_03': begin
-            ypos=ypos+11
-            if sxpar(hdr,'SLITNM') eq 9021 then ypos=ypos-11
-            if sxpar(hdr,'SLITNM') eq 1361 then ypos=ypos-bot_slit_shift
+            delta=-4
+            if sss(sxpar(hdr,'FILTNM')) eq 'H' then delta=-3
+            if sss(sxpar(hdr,'FILTNM')) eq 'J' then delta=3
+            ypos=ypos+delta
+            if sss(sxpar(hdr,'SLITNM')) eq 'S9021' then ypos=ypos-delta
+            if sss(sxpar(hdr,'SLITNM')) eq '12046' then ypos=ypos-delta
+            if sss(sxpar(hdr,'SLITNM')) eq '1361' then ypos=ypos-bot_slit_shift
           end
           'co2_01': begin
-            delta=8
-            if strcompress(sxpar(hdr,'FILTNM'),/remove_all) eq 'K' then delta=16
+            delta=0;good
+            if sss(sxpar(hdr,'FILTNM')) eq 'K' then delta=-1;good
             ypos=ypos+delta
-            if sxpar(hdr,'SLITNM') eq 1145 then ypos=ypos-delta
-            if sxpar(hdr,'SLITNM') eq 1679 then ypos=ypos-bot_slit_shift
+            if sss(sxpar(hdr,'SLITNM')) eq 'S1145' then ypos=ypos-delta
+            if sss(sxpar(hdr,'SLITNM')) eq '1679' then ypos=ypos-bot_slit_shift
           end
           'co2_03': begin
-            delta=8
-            if strcompress(sxpar(hdr,'FILTNM'),/remove_all) eq 'J' then delta=12
+            delta=1 ;good
+            if sss(sxpar(hdr,'FILTNM')) eq 'J' then delta=-3 ;good
+            if sss(sxpar(hdr,'FILTNM')) eq 'K' then delta=0 ;good
             ypos=ypos+delta
-            if sxpar(hdr,'SLITNM') eq 14172 then ypos=ypos-delta
-            if sxpar(hdr,'SLITNM') eq 12104 then ypos=ypos-bot_slit_shift
+            if sss(sxpar(hdr,'SLITNM')) eq 'S14172' then ypos=ypos-delta
+            if sss(sxpar(hdr,'SLITNM')) eq '12104' then ypos=ypos-bot_slit_shift
           end
           'co3_01': begin
+            delta=-2;good h
+            if sss(sxpar(hdr,'FILTNM')) eq 'K' then delta=2 ;
           
-          ;if sxpar(hdr,'SLITNM') eq 2357 then ypos=ypos-bot_slit_shift
+            ypos=ypos+delta
+            if sss(sxpar(hdr,'SLITNM')) eq 'S1470' then ypos=ypos-delta
+            if sss(sxpar(hdr,'SLITNM')) eq 'S4113' then ypos=ypos-delta
+          if sss(sxpar(hdr,'SLITNM')) eq '2357' then ypos=ypos-bot_slit_shift
           end
           'gn2_04': begin
-            ypos=ypos+8
-            if sxpar(hdr,'SLITNM') eq 4336 then ypos=ypos-8
-            if sxpar(hdr,'SLITNM') eq 2182 then ypos=ypos-bot_slit_shift
+            delta=0 ;good
+            ypos=ypos+delta
+            if sss(sxpar(hdr,'SLITNM')) eq 'S4336' then ypos=ypos-delta
+            if sss(sxpar(hdr,'SLITNM')) eq '2182' then ypos=ypos-bot_slit_shift
           end
           'gn2_05': begin
-            delta=8
-            if strcompress(sxpar(hdr,'FILTNM'),/remove_all) eq 'H' then delta=9
-            if strcompress(sxpar(hdr,'FILTNM'),/remove_all) eq 'K' then delta=11
+            delta=0 ;good
+            if sss(sxpar(hdr,'FILTNM')) eq 'K' then delta=-3 ;good
             ypos=ypos+delta
-            if sxpar(hdr,'SLITNM') eq 9994 then ypos=ypos-delta
-            if sxpar(hdr,'SLITNM') eq 7195 then ypos=ypos-bot_slit_shift
+            if sss(sxpar(hdr,'SLITNM')) eq 'S9994' then ypos=ypos-delta
+            if sss(sxpar(hdr,'SLITNM')) eq '7195' then ypos=ypos-bot_slit_shift
           end
           'gs2_01': begin
-            delta=5
-            if strcompress(sxpar(hdr,'FILTNM'),/remove_all) eq 'K' then delta=9
+            delta=0 ;good
+            if sss(sxpar(hdr,'FILTNM')) eq 'K' then delta=-2 ;good
             ypos=ypos+delta
-            if sxpar(hdr,'SLITNM') eq 30874 then ypos=ypos-delta
-            if sxpar(hdr,'SLITNM') eq 25572 then ypos=ypos-delta
-            if sxpar(hdr,'SLITNM') eq 22627 then ypos=ypos-bot_slit_shift
+            if sss(sxpar(hdr,'SLITNM')) eq 'S30874' then ypos=ypos-delta
+            if sss(sxpar(hdr,'SLITNM')) eq 'S25572' then ypos=ypos-delta
+            if sss(sxpar(hdr,'SLITNM')) eq '22627' then ypos=ypos-bot_slit_shift
           end
           'ud1_01': begin
-            delta=6
-            if strcompress(sxpar(hdr,'FILTNM'),/remove_all) eq 'H' then delta=7
+            delta=0
+            if sss(sxpar(hdr,'FILTNM')) eq 'J' then delta=-1
+            if sss(sxpar(hdr,'FILTNM')) eq 'H' then delta=0
             ypos=ypos+delta
-            if sxpar(hdr,'SLITNM') eq 21323 then ypos=ypos-delta
-            if sxpar(hdr,'SLITNM') eq 6187 then ypos=ypos-bot_slit_shift
+            if sss(sxpar(hdr,'SLITNM')) eq 'S21323' then ypos=ypos-delta
+            if sss(sxpar(hdr,'SLITNM')) eq '6187' then ypos=ypos-bot_slit_shift
           end
         endcase
+
+        
         
         
         ;normalize cause of errors.
@@ -3717,6 +3866,7 @@ pro bmep_mosdef_rereduce_v01_to_v02
         newydata=newydata/max(newydata)
         
         cgplot,newydata,thick=3,color='red',title=filenames[i]+'--'+ssi(sxpar(hdr,'CONTMODE'))
+        cgplot,ydata,/overplot,color='black'
         cgerrplot,findgen(n_elements(newydata)),newydata-sqrt(newydataerr),newydata+sqrt(newydataerr)
         cgplot,[ypos,ypos],[min(newydata),max(newydata)],/overplot
         
@@ -3735,7 +3885,7 @@ pro bmep_mosdef_rereduce_v01_to_v02
           yfiterr=sqrt(newydataerr[lower:upper])
           nterms=4
           
-          pi =[{fixed:0, limited:[1,1], limits:[0.D,max(newydata)*1.2]},$ ;peak value
+          pi =[{fixed:0, limited:[1,1], limits:[0.D,max(yfit)*1.2]},$ ;peak value
             {fixed:0, limited:[1,1], limits:[-3.D,n_elements(newydata)+2]},$ ;peak centroid
             {fixed:0, limited:[0,0], limits:[0.D,0.D]},$ ;sigma
             {fixed:1, limited:[0,0], limits:[0.D,0.D]}];,$ ;linear bkgnd term
@@ -3749,16 +3899,20 @@ pro bmep_mosdef_rereduce_v01_to_v02
           if status eq 1 or status eq 3 then begin
             fwhm_fit=2.0*SQRT(2.0*ALOG(2.0))*coeff[2]
             if coeff[1] gt -3 and coeff[1] lt n_elements(newydata)+3 then begin
-              coeff[1]=round(coeff[1])
-              fwhm_fit=round(fwhm_fit)
-              minw=sxpar(hdr,'MINW')
+              
+              readcol,savepath+'00_starinfo.txt',maskstar,$
+               filtstar,objstar,yexpect_star,yactual_star,widthstar,sigmastar,/silent,format='A,A,A,F,F,F,F'
+              index=where(maskstar eq sss(sxpar(hdr,'MSKNM')) and filtstar eq sss(sxpar(hdr,'FILTNM')),ct)
+              if ct eq 0 then message,'err, no star'
+              minw=min(widthstar[index])
               if minw ne -1 and fwhm_fit lt minw then fwhm_fit=minw
+              
               mom1=total(xfit*yfit)/total(yfit)
               mom2=2.355*sqrt(abs(total(xfit*xfit*yfit)/total(yfit) - $
                 (total(xfit*yfit)/total(yfit))*(total(xfit*yfit)/total(yfit))))
               chisq=chisq/float(n_elements(yfit)-1.0)
-              newcenter=ROUND(coeff[1])
-              newwidth=ROUND(fwhm_fit)
+              newcenter=coeff[1]
+              newwidth=fwhm_fit
               printf,lun,'Width: ',newwidth,width
               printf,lun,'Center: ',newcenter,ypos
               if newwidth ne width or newcenter ne ypos then begin
@@ -3771,84 +3925,146 @@ pro bmep_mosdef_rereduce_v01_to_v02
               cgplot,findgen(upper-lower+1)+lower,yfit,color='green',/overplot
               cgplot,findgen(upper-lower)+lower,dummy,color='purple',/overplot
               
-              if sxpar(hdr,'WBYHAND') eq 1 then newwidth = width
+              if sxpar(hdr,'WBYHAND') eq 1 then newwidth = float(width)
               
               
               if abs(newwidth - width) le 1 and abs(newcenter - ypos) le 3 then begin
                 CGTEXT,0.16,0.85,'EXTRACTED',/normal
                 
                 ;extract and save
-                bmep_extraction_simple,sciimg,var_img,newydata,newcenter,newwidth,f,ferr,fopt,fopterr,p
+                bmep_extraction_simple_subpixel,sciimg,var_img,newydata,newcenter,newwidth,coeff[1],coeff[2],f,ferr,fopt,fopterr,p
                 
                 p=p/max(p)
                 p=p*max(yfit)
                 
                 cgplot,p,color='blue',/overplot
                 
-                index=where(zobject eq sxpar(hdr,'SLITNM'),ct)
-                if ct eq 1 then begin
-                  redshift=zredshift[index[0]]
-                  wavel=wavel/(redshift+1.0)
-                  wavel2d=wavel2d/(redshift+1.0)
-                  count=0
-                  readcol,'~/Dropbox/siana_group/bill/line_list.txt',vertlines,vertlinenames,format='F,A',/silent
-                  
-                  if strcompress(sxpar(hdr,'FILTNM'),/remove_all) eq 'K' then index=where(wavel lt 6800 and wavel gt 6500,count)
-                  if strcompress(sxpar(hdr,'FILTNM'),/remove_all) eq 'J' then index=where(wavel lt 3900 and wavel gt 3700,count)
-                  if strcompress(sxpar(hdr,'FILTNM'),/remove_all) eq 'H' then index=where(wavel lt 5100 and wavel gt 4800,count)
-                  if count gt 10 then begin
-                    cgplot,wavel[index],data[index],title=filenames[i],ytitle='red=new, black=old',$
-                      yrange=[bmep_percent_cut(data[index],2),bmep_percent_cut(data[index],98)],/xs
-                    for ijk=0,n_elements(vertlines)-1 do oplot_vert,vertlines[ijk],$
-                      minmax(data[index]),name=vertlinenames[ijk],ynamepos=median(data[index]),charsize=1.0,/cg
-                    count=0
-                    if strcompress(sxpar(hdr,'FILTNM'),/remove_all) eq 'K' then index=where(wavel2d lt 6800 and wavel2d gt 6500,count)
-                    if strcompress(sxpar(hdr,'FILTNM'),/remove_all) eq 'J' then index=where(wavel2d lt 3900 and wavel2d gt 3700,count)
-                    if strcompress(sxpar(hdr,'FILTNM'),/remove_all) eq 'H' then index=where(wavel2d lt 5100 and wavel2d gt 4800,count)
-                    
-                    if count gt 10 then begin
-                      cgplot,wavel2d[index],fopt[index],color='red',title=filenames[i],ytitle='red=new, black=old',$
-                        yrange=[bmep_percent_cut(fopt[index],2),bmep_percent_cut(fopt[index],98)],/xs
-                      for ijk=0,n_elements(vertlines)-1 do oplot_vert,vertlines[ijk],$
-                        minmax(fopt[index]),name=vertlinenames[ijk],ynamepos=median(fopt[index]),charsize=1.0,/cg
-                    endif;count gt 10
-                  endif;count gt 10
-                endif ;count gt 1
+
                 
                 
                 
               ;save the damn files...
-              ;                sxaddpar,hdr,'WIDTH',newwidth,/savecomment
-              ;                sxaddpar,hdr,'YEXPECT',ypos,/savecomment
-              ;                sxaddpar,hdr,'YPOS',newcenter,/savecomment
-              ;                sxaddpar,hdr,'MOM1',mom1,/savecomment
-              ;                sxaddpar,hdr,'MOM2',mom2,/savecomment
-              ;                sxaddpar,hdr,'GAUSRCHI',chisq,/savecomment
+              ;     
+              ;       
+              
+         
+   
+        extrainfo1=[$
+        'CRVAL1',$
+        'CDELT1',$
+        'CRPIX1',$
+        'CTYPE1',$
+        'EXPTIME',$
+        $
+        'TARGNAME',$
+        'MASKNAME',$
+        'DATE-OBS',$
+        'UT_FIRST',$
+        'UT_LAST',$
+        $
+        'FILTER',$
+        'N_OBS',$
+        'AIRMASS',$
+        'PSCALE',$
+        'GAIN',$
+        $
+        'READNOIS',$
+        'PATTERN',$
+        'SLIT',$
+        'BARS',$
+        'RA',$
+        $
+        'DEC',$
+        'OFFSET',$
+        'MAGNITUD',$
+        'PRIORITY']
+        
+        extrainfo3=[$
+        ' ',$
+        ' ',$
+        ' ',$
+        ' ',$
+        ' Total exposure time (seconds)',$
+        $
+        ' Name in star list ',$
+        ' Name of mask in MAGMA  ',$
+        ' Date observed',$
+        ' Ut of first obs',$
+        ' Ut of first obs',$
+        $
+        ' Name of the filter',$
+        ' Number of included frames',$
+        ' Average airmass',$
+        ' Pixel scale [arcsec/pix]  ',$
+        ' Gain',$
+        $
+        ' Readnoise',$
+        ' Dither pattern',$
+        ' Slit Number (Bottom slit is no 1) ',$
+        ' Bar numbers (Bottom bar is no 1) ',$
+        ' Object Ra (Degrees)',$
+        $
+        ' Object Dec (Degrees)',$
+        ' Offset spectrum wrt center of slit [arscec]',$
+        ' Magnitude from MAGMA input files (H band)',$
+        ' Priority used in MAGMA   ']
+       
               ;
-              ;                sxaddpar,hdr0,'WIDTH',newwidth,/savecomment
-              ;                sxaddpar,hdr0,'YEXPECT',ypos,/savecomment
-              ;                sxaddpar,hdr0,'YPOS',newcenter,/savecomment
-              ;                sxaddpar,hdr0,'MOM1',mom1,/savecomment
-              ;                sxaddpar,hdr0,'MOM2',mom2,/savecomment
-              ;                sxaddpar,hdr0,'GAUSRCHI',chisq,/savecomment
-              ;
-              ;                writefits,filenames[i],'',hdr0
-              ;                writefits,filenames[i],fopt,hdr,/append
-              ;                writefits,filenames[i],fopterr,hdr,/append
-              ;                writefits,filenames[i],f,hdr,/append
-              ;                writefits,filenames[i],ferr,hdr,/append
-              ;
-              ;                sxaddpar,hdr,'CRVAL1',1
-              ;                sxaddpar,hdr,'CDELT1',1.0
-              ;                sxaddpar,hdr,'CRPIX1',1
-              ;                sxaddpar,hdr,'CTYPE1','LINEAR'
-              ;                writefits,filenames[i],newydata,hdr,/append
+              for k=0,n_elements(extrainfo1)-1 do sxaddpar,hdr,extrainfo1[k],sxpar(D2hdr,extrainfo1[k]),extrainfo3[k]
+              sxaddpar,hdr,'TARGNAME',sxpar(hdr,'TARGNAME')
+                              sxaddpar,hdr,'WIDTH',newwidth,/savecomment
+                              sxaddpar,hdr,'YEXPECT',ypos,/savecomment
+                              sxaddpar,hdr,'YPOS',newcenter,/savecomment
+                              sxaddpar,hdr,'MOM1',mom1,/savecomment
+                              sxaddpar,hdr,'MOM2',mom2,/savecomment
+                              sxaddpar,hdr,'GAUSRCHI',chisq,' Reduced Chi sqr of gauss fit to Y profile'
+                              sxaddpar, hdr, 'GWIDTH', coeff[2], ' Sigma of gaussian fit'
+                              sxaddpar, hdr, 'GCENT', coeff[1], ' Central pixel of gaussian fit'
+                              sxaddpar, hdr, 'GAMP', coeff[0], ' Amplitude of gaussian fit'
+                              sxaddpar, hdr, 'GLINEAR', coeff[3], ' Linear continuum of gaussian fit'
+                              sxaddpar, hdr, 'GWIDTH_E', gauss_sigma[2], ' 1sigma Error in Sigma of gaussian fit'
+                              sxaddpar, hdr, 'GCENT_E', gauss_sigma[1], ' 1sigma Error in CENTRAL pixel of gaussian fit'
+                              sxaddpar, hdr, 'GAMP_E', gauss_sigma[0],  ' 1sigma Error in Amplitude of gaussian fit'
+                              sxaddpar, hdr, 'GLINE_E', gauss_sigma[3], ' 1sigma Error in Linear continuum of gaussian fit'
+                              
+                            
+                              
+              
+              for k=0,n_elements(extrainfo1)-1 do sxaddpar,hdr0,extrainfo1[k],sxpar(D2hdr,extrainfo1[k]),extrainfo3[k]
+                              sxaddpar,hdr0,'WIDTH',newwidth,/savecomment
+                              sxaddpar,hdr0,'YEXPECT',ypos,/savecomment
+                              sxaddpar,hdr0,'YPOS',newcenter,/savecomment
+
+              
+                              writefits,filenames[i],'',hdr0
+                              writefits,filenames[i],fopt,hdr,/append
+                              writefits,filenames[i],fopterr,hdr,/append
+                              writefits,filenames[i],f,hdr,/append
+                              writefits,filenames[i],ferr,hdr,/append
+              
+                              sxaddpar,hdr,'CRVAL1',1
+                              sxaddpar,hdr,'CDELT1',1.0
+                              sxaddpar,hdr,'CRPIX1',1
+                              sxaddpar,hdr,'CTYPE1','LINEAR'
+                              writefits,filenames[i],newydata,hdr,/append
+                
+                
+                
+                
+                
+         
+                
+                
+                
+                
+                
+                
+                
                 
                 
               endif else begin ;new width and center OK
                 printf,lun,'Bad new width or center. Too different'
                 printf,lun3,filenames[i],'Bad new width or center. Too different';,newwidth,width,newcenter,ypos
-                
               endelse
             endif else begin;coeff makes sense
               printf,lun,'Bad gaussian fit. (coeff out of good range.)'
@@ -3864,12 +4080,12 @@ pro bmep_mosdef_rereduce_v01_to_v02
         endelse
       endif else begin ;file test
         printf,lun,'ERROR FINDING 2D FILE, '+path_to_output+'/'+sci_file_name
-        printf,lun3,filenames[i],'ERROR FINDING 2D FILE, '+path_to_output+'/'+sci_file_name
+        ;printf,lun3,filenames[i]+' - ERROR FINDING 2D FILE, '+path_to_output+'/'+sci_file_name
       endelse
     endelse; header flags ok
     ;end loop
     printf,lun
-  endfor
+  endfor;looping through objects
   
   ;close file and clean up
   close,lun
@@ -3881,9 +4097,10 @@ pro bmep_mosdef_rereduce_v01_to_v02
   ps_end
   !p.multi=[0,1,1]
   
-  bmep_mosdef_update_yexpect
+;  bmep_mosdef_update_yexpect
   
   print,'there are ',file_lines(backup_folder_name+'_undone_info.txt')-3,' undone'
+  print,'out of ',n_elements(filenames),' files
   
   print,'that took ',round(systime(/seconds)- starttime),' seconds
   cd,original_dir
