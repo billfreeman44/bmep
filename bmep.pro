@@ -1304,7 +1304,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
   
   CASE string(character) OF
     'b': begin
-      print,'doing the background, press q to exit'
+      print,'Now entering extraction mode. press q to exit'
       order=1 ; order of bkgnd fit
       default_width=4 ; width of extraction
       
@@ -1670,6 +1670,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
                 
               ;make hdr
               ;exten 0
+              if file_test(state.savepath+fitsfilenm+'.1d.fits') eq 1 then print,'overwriting '+state.savepath+fitsfilenm+'.1d.fits'
               header=bmep_make_hdr('',extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
                 gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
                 wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,usercommentcode,usercommentcodeoptions,$
@@ -1724,39 +1725,6 @@ FUNCTION bmep_KeyboardHandler, oWin, $
                 gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
                 gamp_err, glinear_err,bkgndl,bkgndr,/image,/no_wave_info)
               writefits,state.savepath+fitsfilenm+'.1d.fits',state.ydataerr,header,/append
-              
-              
-;               ;exten 7
-;              header=bmep_make_hdr(Fopt_sp,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
-;                gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-;                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,usercommentcode,usercommentcodeoptions,$
-;                gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
-;                gamp_err, glinear_err,bkgndl,bkgndr,/image)
-;              writefits,state.savepath+fitsfilenm+'.1d.fits',flux_opt,header,/append
-;              
-;              ;exten 8
-;              header=bmep_make_hdr(fopterr_sp,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
-;                gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-;                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,usercommentcode,usercommentcodeoptions,$
-;                gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
-;                gamp_err, glinear_err,bkgndl,bkgndr,/image)
-;              writefits,state.savepath+fitsfilenm+'.1d.fits',erropt,header,/append
-;              
-;              ;exten 9
-;              header=bmep_make_hdr(F_sp,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
-;                gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-;                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,usercommentcode,usercommentcodeoptions,$
-;                gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
-;                gamp_err, glinear_err,bkgndl,bkgndr,/image)
-;              writefits,state.savepath+fitsfilenm+'.1d.fits',flux,header,/append
-;              
-;              ;exten 10
-;              header=bmep_make_hdr(ferr_sp,extrainfo1,extrainfo2,extrainfo3,j,centerarr,widtharr,$
-;                gausschiarr,fitgaussp,cosmic_sigma,order,state,objnum,wavel,autoextractflag, $
-;                wbyhand,cbyhand,mom1,mom2,slitloss,usercomment,usercommentcode,usercommentcodeoptions,$
-;                gwidth, gcenter, gamp, glinear, gwidth_err, gcenter_err, $
-;                gamp_err, glinear_err,bkgndl,bkgndr,/image)
-;              writefits,state.savepath+fitsfilenm+'.1d.fits',err,header,/append
               
               
               revisevar=0
@@ -2637,6 +2605,7 @@ end
 end
 
 'h': begin
+  print,'you are currently in PROFILE MODE. Hit "b" to go into extraction mode.'
   print,'begin help'
   print,'b - go into extraction mode'
   print,'r - reset cross section'
@@ -2645,6 +2614,7 @@ end
 end
 
 ELSE: begin
+  print,'you are currently in PROFILE MODE. Hit "b" to go into extraction mode.'
   print,'begin help'
   print,'b - go into extraction mode'
   print,'r - reset cross section'
@@ -3857,7 +3827,7 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
             if sss(sxpar(hdr,'SLITNM')) eq '6187' then ypos=ypos-bot_slit_shift
           end
         endcase
-
+        ypos=float(ypos)
         
         
         
@@ -3905,6 +3875,7 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
               index=where(maskstar eq sss(sxpar(hdr,'MSKNM')) and filtstar eq sss(sxpar(hdr,'FILTNM')),ct)
               if ct eq 0 then message,'err, no star'
               minw=min(widthstar[index])
+              print,'minw ',minw
               if minw ne -1 and fwhm_fit lt minw then fwhm_fit=minw
               
               mom1=total(xfit*yfit)/total(yfit)
@@ -4013,6 +3984,7 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
               for k=0,n_elements(extrainfo1)-1 do sxaddpar,hdr,extrainfo1[k],sxpar(D2hdr,extrainfo1[k]),extrainfo3[k]
               sxaddpar,hdr,'TARGNAME',sxpar(hdr,'TARGNAME')
                               sxaddpar,hdr,'WIDTH',newwidth,/savecomment
+                              sxaddpar,hdr,'MINW',minw,/savecomment
                               sxaddpar,hdr,'YEXPECT',ypos,/savecomment
                               sxaddpar,hdr,'YPOS',newcenter,/savecomment
                               sxaddpar,hdr,'MOM1',mom1,/savecomment
@@ -4951,6 +4923,7 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
           endif else print,'no matching stars found ',maskname,' ',filtername
         endelse ;if isstar
         if isstar eq 1 and choice eq n_elements(objects) then goto, no_do_image
+        if sxpar(shdr,'SLIT') eq 1 then yexpect=yexpect+4 ; account for the bottom slit.
         print,'slitname, yexpect, midpoint, yshift, minwidth'
         print,slitname, yexpect, midpoint, yshift, minwidth
         yexpect=yexpect-yshift
