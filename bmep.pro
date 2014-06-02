@@ -3570,7 +3570,38 @@ pro bmep_mosdef_rereduce_old
   print,'done rereduciing'
 end
 
+pro bmep_mosdef_literal_reextraction
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+end
 
 
 pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
@@ -3950,7 +3981,18 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
         'MAGNITUD',$
         'PRIORITY',$
         'SCALING',$
-        'PA']
+        $
+        'PA',$
+        'CATALOG',$
+        'FIELD',$
+        'VERSION',$
+        'Z_PHOT',$
+        $
+        'Z_GRISM',$
+        'Z_SPEC',$
+        'SCALING',$
+        'SEEING'$
+        ]
         
         extrainfo3=[$
         ' ',$
@@ -3983,7 +4025,18 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
         ' Priority used in MAGMA   ',$
         ' Scaling factor from cts/s to erg/s/cm^2/Angstrom',$
         $
-        ' Slit position angle ']
+        ' Slit position angle ',$
+        ' Catalog version' , $
+        ' ', $
+        ' Version of the 3D-HST catalogs', $
+        ' Photometric redshift from 3D-HST', $
+        $
+        ' GRISM redshift from 3D-HST  ', $
+        ' External spectroscopic redshift', $
+        ' Scaling factor; cts/s to erg/s/cm^2/Angstrom', $
+        ' FWHM measured by 2D reduction code [arcsec]' $
+        ]
+        
        
               sxaddpar,hdr,'COMMENT',' Exten 6: Light profile error bars' 
               for k=0,n_elements(extrainfo1)-1 do sxaddpar,hdr,extrainfo1[k],sxpar(D2hdr,extrainfo1[k]),extrainfo3[k]
@@ -4010,7 +4063,7 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
                 sxaddpar,hdr,'OFFSET'+ssi(k),sxpar(D2hdr,'OFFSET'+ssi(k))
                 endfor
                             
-                              
+              if sxpar(hdr,'isstar') eq 1 then  sxaddpar,hdr,'MINW',-1,/savecomment             
               
               for k=0,n_elements(extrainfo1)-1 do sxaddpar,hdr0,extrainfo1[k],sxpar(D2hdr,extrainfo1[k]),extrainfo3[k]
               sxaddpar,hdr0,'WIDTH',newwidth,/savecomment
@@ -4979,14 +5032,24 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
         'SCALING',$
         $
         'PA',$
+        'CATALOG',$
         'FILNM',$
         'MSKNM',$
         'FILTNM',$
-        'SLITNM',$
         $
+        'SLITNM',$
         'ISSTAR',$
         'MINW',$
-        'YEXPECT'$
+        'YEXPECT',$
+        'FIELD',$
+        $
+        'VERSION',$
+        'Z_PHOT',$
+        'Z_GRISM',$
+        'Z_SPEC',$
+        'SCALING',$
+        $
+        'SEEING'$
         ]
         
       extrainfo2=[$
@@ -5021,14 +5084,24 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
         string(sxpar(shdr,'SCALING')),$
         $
         string(sxpar(shdr,'PA')),$
+        string(sxpar(shdr,'CATALOG')),$
         filename,$
         maskname,$
         filtername,$
-        slitname, $
         $
+        slitname, $
         ssi(isstar), $
         ssf(minwidth), $
-        ssf(yexpect) $
+        ssf(yexpect),$
+        string(sxpar(shdr,'FIELD')),$
+        $
+        string(sxpar(shdr,'VERSION')),$
+        string(sxpar(shdr,'Z_PHOT')),$
+        string(sxpar(shdr,'Z_GRISM')),$
+        string(sxpar(shdr,'Z_SPEC')),$
+        string(sxpar(shdr,'SCALING')),$
+        $
+        string(sxpar(shdr,'SEEING'))$
         ]
         
       ;comments
@@ -5064,14 +5137,24 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
         ' Scaling factor from cts/s to erg/s/cm^2/Angstrom',$
         $
         ' Slit position angle ',$
+        ' Catalog ',$
         ' name of file',$
         ' name of mask for file naming purposes',$
         ' name of filter for file naming purposes',$
-        ' name of slit for file naming purposes', $
         $
+        ' name of slit for file naming purposes', $
         ' Flag if is a star (1 is star, 0 is not)', $
         ' minimum width (-1 default)', $
-        ' expected y position (pixels, shifted by star offset)' $
+        ' expected y position (pixels, shifted by star offset)' , $
+        ' ', $
+        $
+        ' Version of the 3D-HST catalogs', $
+        ' Photometric redshift from 3D-HST', $
+        ' GRISM redshift from 3D-HST  ', $
+        ' External spectroscopic redshift', $
+        ' Scaling factor; cts/s to erg/s/cm^2/Angstrom', $
+        $
+        ' FWHM measured by 2D reduction code [arcsec]' $
         ]
         
         FOR K=1,sxpar(shdr,'N_OBS') do begin
@@ -5086,7 +5169,7 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
           extrainfo3=[extrainfo3,' ']
           extrainfo1=[extrainfo1,'OFFSET'+ssi(k)]
           extrainfo2=[extrainfo2,STRING(sxpar(shdr,'OFFSET'+ssi(k)))]
-          extrainfo3=[extrainfo3,' ']
+          extrainfo3=[extrainfo3,' Offset in pixels']
           endfor
         
         
