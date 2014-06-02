@@ -1592,6 +1592,37 @@ FUNCTION bmep_KeyboardHandler, oWin, $
                 0.0,ssi(k)
             endfor
             
+            
+            ;plot verticl lines where should be ha... etc 
+            ;define line names
+            linenames= ['HA6565','NII6585','OII_dbl','OIII5008','OIII4960','HB4863','SII_dbl','HG4342']
+            if state.vacuum eq 1 then $
+              linewavels=[6564.614,6585.27,3728.48,5008.239,4960.295,4862.721,6718.29,4339.00]$;vacuum
+              else $
+                linewavels=[6562.801,6583.45,3727.28,5006.843,4958.911,4861.363,6716.44,4341.00];air
+            redshift_suspect=-1.0
+
+            index=where(state.extrainfo1 eq 'Z_SPEC',ct)
+            if ct eq 1 and state.extrainfo2[index[0]] gt 0.0 then redshift_suspect=state.extrainfo2[index[0]] $
+              else begin
+            index=where(state.extrainfo1 eq 'Z_GRISM',ct)
+            if ct eq 1 and state.extrainfo2[index[0]] gt 0.0 then redshift_suspect=state.extrainfo2[index[0]] $
+              else begin
+              index=where(state.extrainfo1 eq 'Z_PHOT',ct)
+              if ct eq 1 and state.extrainfo2[index[0]] gt 0.0 then redshift_suspect=state.extrainfo2[index[0]]
+              endelse
+            endelse
+            
+            if redshift_suspect GT 0 THEN BEGIN
+              FOR k=0,n_elements(linenames)-1 do begin
+                oplot,[linewavels[k] * (1.0+redshift_suspect),linewavels[k] * (1.0+redshift_suspect)],minmax(fopt),color=456789
+                ;xyouts
+                endfor
+              endif
+            
+            
+            
+            
             ;show the sky mask
             ;                if showskymask then begin
             ;                  maskedimg=state.data
@@ -5010,6 +5041,40 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
       
       ;draw white line
       if yexpect lt ny-1 and yexpect ge 0 then big_img[*,yexpect]=255
+      
+      
+      ;plot verticl lines where should be ha... etc 
+      ;define line names
+      linenames= ['HA6565','NII6585','OII_dbl','OIII5008','OIII4960','HB4863','SII_dbl','HG4342']
+      linewavels=[6564.614,6585.27,3728.48,5008.239,4960.295,4862.721,6718.29,4339.00];vacuum
+      redshift_suspect=-1.0
+
+
+      redshift_suspect=sxpar(shdr,'Z_SPEC')
+      if redshift_suspect le 0 then redshift_suspect=sxpar(shdr,'Z_GRISM')
+      if redshift_suspect le 0 then redshift_suspect=sxpar(shdr,'Z_PHOT')
+      print,'redshift_suspect ',redshift_suspect
+      if redshift_suspect GT 0 THEN BEGIN
+        FOR k=0,n_elements(linenames)-1 do begin
+          linewave=linewavels[k] * (1.0+redshift_suspect)
+          if linewave gt min(wavel) and linewave lt max(wavel) then begin
+            index=where(abs(wavel-linewave) eq min(abs(wavel-linewave)),ct)
+            print,index
+            if ct eq 1 then big_img[index,ny-20:ny+20]=255
+            endif
+          ;xyouts
+          endfor
+        endif
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
       
       highval=max(big_img)
       lowval=min(big_img)

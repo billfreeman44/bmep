@@ -160,20 +160,18 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
   ;get where to save output of extraction program
   x=getenv('BMEP_MOSDEF_1D')
   if x ne '' then savepath=x else begin
-    savepath=path_to_output+'/1d_extracted/'
+    savepath=path_to_output+'1d_extracted/'
     ;create folder to extract to if it doesn't exist.
-    if ~bmep_DIR_EXIST(savepath) then spawn,'mkdir 1d_extracted'
+    if ~bmep_DIR_EXIST(savepath) then file_mkdir ,'1d_extracted'
     endelse
   ;ensure that there is a '/' at the end of the path.
-  if strmid(savepath,strlen(savepath)-1) ne '/' then savepath=savepath+'/'
+  if strmid(savepath,strlen(savepath)-1) ne path_sep() then savepath=savepath+path_sep()
 
 
   cd,path_to_output,current=original_dir
   
   ;parse folder into different masks!!
-  spawn,'ls *.2d.fits > tempfiles.txt'
-  readcol,'tempfiles.txt',filenames,format='A',/silent
-  spawn,'rm tempfiles.txt'
+  filenames = file_search('*.2d.fits')
   
   ;parse names
   masks=[]
@@ -191,9 +189,7 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
   
   ;find 1d extractions of non-primary objects
   print,'creating obj info'
-  spawn,'ls '+savepath+'*.1d.fits > tempfiles.txt'
-  readcol,'tempfiles.txt',filenames1d,format='A',/silent
-  spawn,'rm tempfiles.txt'
+  filenames1d=file_search(savepath+'*.1d.fits' )
   
   openw,lun,savepath+'00_blind_info.txt',/get_lun
   for i=0,n_elements(filenames1d)-1 do begin
@@ -204,7 +200,6 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
       filter=sxpar(hdr,'FILTNM')
       slit=sxpar(hdr,'SLITNM')
       width=(sxpar(hdr,'WIDTH'))
-      width_sigma=sxpar(hdr,'GWIDTH')
       minw=sxpar(hdr,'MINW')
       ypos=sxpar(hdr,'YPOS')
       yexpect=sxpar(hdr,'YEXPECT')
