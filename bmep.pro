@@ -2426,7 +2426,19 @@ if key eq 'X' then begin
       else $
         linewavels=[6562.801,6583.45,3727.28,5006.843,4958.911,4861.363,6716.44,4341.00];air
     
-    forprint,indgen(n_elements(linenames)),' '+linenames,linewavels
+    
+    index=where(state.extrainfo1 eq 'PRIORITY',ct)
+    if ct eq 1 then print,' PRIORITY is '+ssi(state.extrainfo2[index[0]])
+    index=where(state.extrainfo1 eq 'Z_PHOT',ct)
+    if ct eq 1 then print,' Z_PHOT is '+ssf(state.extrainfo2[index[0]])
+    index=where(state.extrainfo1 eq 'Z_GRISM',ct)
+    if ct eq 1 then print,' Z_GRISM is '+ssf(state.extrainfo2[index[0]])
+    index=where(state.extrainfo1 eq 'Z_SPEC',ct)
+    if ct eq 1 then print,' Z_SPEC is '+ssf(state.extrainfo2[index[0]])
+    
+    
+    
+    forprint,indgen(n_elements(linenames)),' '+linenames,linewavels,(coeff[1]/linewavels)-1.0
     print,n_elements(linenames),'other'
     choice=-1
     print,'enter choice'
@@ -3734,7 +3746,7 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
       ;read in NEW! 2d image
       if file_test(path_to_output+'/'+sci_file_name) then begin
         sciimg=readfits(path_to_output+'/'+sci_file_name,D2hdr,exten_no=1,/silent)
-        var_img=readfits(path_to_output+'/'+sci_file_name,D2hdr,exten_no=3,/silent)
+        var_img=readfits(path_to_output+'/'+sci_file_name,D2hdrnois,exten_no=3,/silent)
         ;clean image
         index=where(finite(var_img) eq 0,/null)
         sciimg[index]=0.0
@@ -3954,8 +3966,7 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
         extrainfo1=[$
         'CRVAL1',$
         'CDELT1',$
-        'CRPIX1',$
-        'CTYPE1',$
+        'CRPIX1',$ 
         'EXPTIME',$
         $
         'TARGNAME',$
@@ -3991,11 +4002,10 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
         'Z_GRISM',$
         'Z_SPEC',$
         'SCALING',$
-        'SEEING'$
+        'SEEING' $
         ]
         
         extrainfo3=[$
-        ' ',$
         ' ',$
         ' ',$
         ' ',$
@@ -4039,7 +4049,10 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
         
        
               sxaddpar,hdr,'COMMENT',' Exten 6: Light profile error bars' 
-              for k=0,n_elements(extrainfo1)-1 do sxaddpar,hdr,extrainfo1[k],sxpar(D2hdr,extrainfo1[k]),extrainfo3[k]
+              for k=0,n_elements(extrainfo1)-1 do begin 
+                sxaddpar,hdr,extrainfo1[k],sxpar(D2hdr,extrainfo1[k],COUNT=COUNT),extrainfo3[k]
+                if count ne 1 then print,count,extrainfo1[k]
+                endfor
               sxaddpar,hdr,'TARGNAME',sxpar(hdr,'TARGNAME')
               sxaddpar,hdr,'WIDTH',newwidth,/savecomment
               sxaddpar,hdr,'MINW',minw,/savecomment
@@ -4052,10 +4065,10 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
               sxaddpar, hdr, 'GCENT', coeff[1], ' Central pixel of gaussian fit'
               sxaddpar, hdr, 'GAMP', coeff[0], ' Amplitude of gaussian fit'
               sxaddpar, hdr, 'GLINEAR', coeff[3], ' Linear continuum of gaussian fit'
-              sxaddpar, hdr, 'GWIDTH_E', gauss_sigma[2], ' 1sigma Error in Sigma of gaussian fit'
-              sxaddpar, hdr, 'GCENT_E', gauss_sigma[1], ' 1sigma Error in CENTRAL pixel of gaussian fit'
-              sxaddpar, hdr, 'GAMP_E', gauss_sigma[0],  ' 1sigma Error in Amplitude of gaussian fit'
-              sxaddpar, hdr, 'GLINE_E', gauss_sigma[3], ' 1sigma Error in Linear continuum of gaussian fit'
+              sxaddpar, hdr, 'GWIDTH_E', gauss_sigma[2], ' 1 sigma Error in Sigma of gaussian fit'
+              sxaddpar, hdr, 'GCENT_E', gauss_sigma[1], ' 1 sigma Error in CENTRAL pixel of gaussian fit'
+              sxaddpar, hdr, 'GAMP_E', gauss_sigma[0],  ' 1 sigma Error in Amplitude of gaussian fit'
+              sxaddpar, hdr, 'GLINE_E', gauss_sigma[3], ' 1 sigma Error in Linear continuum of gaussian fit'
               FOR K=1,sxpar(D2hdr,'N_OBS') do begin
                 sxaddpar,hdr,'FRAME'+ssi(k),sxpar(D2hdr,'FRAME'+ssi(k))
                 sxaddpar,hdr,'WEIGHT'+ssi(k),sxpar(D2hdr,'WEIGHT'+ssi(k))
@@ -4986,14 +4999,17 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
           endif else print,'no matching stars found ',maskname,' ',filtername
         endelse ;if isstar
         if isstar eq 1 and choice eq n_elements(objects) then goto, no_do_image
-        if sxpar(shdr,'SLIT') eq 1 then yexpect=yexpect+4 ; account for the bottom slit.
+        if sxpar(shdr,'SLIT') eq 1 then begin 
+          print,'this object is at the bottom slit. accounting for this by shifting yexpect by -4'
+          yexpect=yexpect-4 ; account for the bottom slit.
+          endif
         print,'slitname, yexpect, midpoint, yshift, minwidth'
         print,slitname, yexpect, midpoint, yshift, minwidth
         yexpect=yexpect-yshift
         PRINT,'new yexpect:',yexpect
       
       ;draw white line
-      big_img[*,yexpect]=255
+      if yexpect lt ny-1 and yexpect ge 0 then big_img[*,yexpect]=255
       
       highval=max(big_img)
       lowval=min(big_img)
