@@ -1060,7 +1060,7 @@ function bmep_find_p,state,bkgndl,bkgndr,order,bottomint,topint,$
     if total(p) ne 0 then p=p/total(p)
     
     
-  endif
+  endif else p=pguess
   
   if total(p) eq 0 then begin
     index=where(xarr_big ge bottomint or xarr_big ge topint,/null)
@@ -1378,7 +1378,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
       usercomment='No Comment'
       usercommentcode=0
       usercommentcodeoptions=['nothing unusual',$
-        'visible rotation','possible AGN',$
+        'visible rotation','broad lines',$
         'unusual spatial profile','overlapping another object',$
         'dithered into another object','object on edge of slit',$
         'other issue: do not use for science',$
@@ -2874,7 +2874,7 @@ function bmep_make_hdr,data_make,extrainfo1,extrainfo2,extrainfo3,j,centerarr,wi
   ;make fits header for new 1d file!
   MKHDR, header, data_make, exten=exten, image=image
   FOR jj=0,n_elements(extrainfo1) -1 do $
-    if strnumber(extrainfo2[jj]) then $
+    if VALID_NUM(extrainfo2[jj]) then $
     if float(extrainfo2[jj]) eq fix(extrainfo2[jj]) then $
     sxaddpar, Header,extrainfo1[jj],fix(extrainfo2[jj]),extrainfo3[jj] else $
     sxaddpar, Header,extrainfo1[jj],float(extrainfo2[jj]),extrainfo3[jj] else $
@@ -3099,7 +3099,7 @@ end
 
 
 pro bmep_mosdef_update_yexpect
-  stop ;hammer time
+;  stop ;hammer time
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   !except=2 ;see division by zero errors instantly.
@@ -3107,10 +3107,16 @@ pro bmep_mosdef_update_yexpect
   
   ;creat list of 1d spec
   
-  if not keyword_set(path_to_output) then path_to_output='~/mosfire/output/idl_output/2D' ; no trailing slash
-  cd,path_to_output+'/1d_extracted',current=original_dir
+  ;create list of 1d spec
+  path_to_output=getenv('BMEP_MOSDEF_2D')
+  if path_to_output eq '' then message,'run in terminal window pls'
   
+  ;get where to save output of extraction program
+  savepath=getenv('BMEP_MOSDEF_1D')
+  cd,savepath,current=original_dir
+
   ;read in list of 1d spectra
+;  filenames = file_search('co3_01*.1d.fits');for updating only one
   filenames = file_search('*.1d.fits')
   print,'list contains ',n_elements(filenames),' objects
   
@@ -3118,6 +3124,7 @@ pro bmep_mosdef_update_yexpect
   for i=0,n_elements(filenames)-1 do begin
     temp=readfits(filenames[i],hdr0,exten_no=0,/silent)
     ydata=readfits(filenames[i],hdr,exten_no=5,/silent)
+    ydataerr=readfits(filenames[i],hdr,exten_no=6,/silent)
     fopt=readfits(filenames[i],hdr,exten_no=1,/silent)
     fopterr=readfits(filenames[i],hdr,exten_no=2,/silent)
     f=readfits(filenames[i],hdr,exten_no=3,/silent)
@@ -3130,56 +3137,39 @@ pro bmep_mosdef_update_yexpect
     filtername=strcompress(sxpar(hdr,'FILTNM'),/remove_all)
     slitname=strcompress(sxpar(hdr,'SLITNM'),/remove_all)
     twodfilename=strcompress(sxpar(hdr,'FILNM'),/remove_all)
+    d2data=readfits(path_to_output+twodfilename,d2hdr,exten_no=1)
     
-    slitlistfile=path_to_output+'/00mask_info/'+maskname+'_SlitList.txt'
-    if ~file_test(slitlistfile) then message,'SLITLIST FILE MISSING... '+SLITLISTFILE
     
-    ;1 2 17  45.61 -5  10  9.37  0.70  7.01  23763 800.00  -0.38 2 17  45.59 -5  10  9.65
-    readcol,slitlistfile,slitnamearr,priorityarr,offsetarr,format='X,X,X,X,X,X,X,X,X,I,F,F,X,X,X,X,X,X',/silent
-    index=where(slitnamearr eq slitname,ct)
+    ;1 2 17  45.61 -5  10  9.37  0.70  7.01  23763 800.00  -0.38 2 17  45.59 -5  10  9.65 INDEX
     yexpect=-1
     isstar=-1
     minwidth=-1
     yshift=0.0
-    if ct eq 1 then begin
-      pixscale=0.1799
-      midpoint=ny/2
-      yexpect=midpoint+offsetarr[index[0]]/pixscale
-      ;check if object is a star
-      if abs(priorityarr[index]) eq 1 then isstar=1 else begin
-        isstar=0
-        readcol,path_to_output+'/1d_extracted/00_starinfo.txt',maskstar,$
-          filtstar,objstar,yexpect_star,yactual_star,widthstar,sigmastar,/silent,format='A,A,A,F,F,F,F'
-        index=where(maskstar eq maskname and filtstar eq filtername,ct)
-        if ct ne 0 then begin
-          print,ct,' number of stars found for ',maskname,' ',filtername
-          yshift=avg(yexpect_star[index] - yactual_star[index])
-          minwidth=fix(min(widthstar[index]))
-        endif else print,'no matching stars found ',maskname,' ',filtername
-      endelse ;if isstar
-    endif
-    
-    yexpect=yexpect-yshift
-    yexpect=round(yexpect)
+    pixscale=0.1799
+    midpoint=ny/2
+    yexpect=midpoint+sxpar(d2hdr,'OFFSET')/pixscale
+    ;check if object is a star
+    if abs(sxpar(d2hdr,'PRIORITY')) eq 1 then isstar=1 else begin
+      isstar=0
+      readcol,savepath+'00_starinfo.txt',maskstar,$
+        filtstar,objstar,yexpect_star,yactual_star,widthstar,sigmastar,/silent,format='A,A,A,F,F,F,F'
+      index=where(maskstar eq maskname and filtstar eq filtername,ct)
+      if ct ne 0 then begin
+        print,ct,' number of stars found for ',maskname,' ',filtername
+        yshift=avg(yexpect_star[index] - yactual_star[index])
+        minwidth=fix(min(widthstar[index]))
+      endif else print,'no matching stars found ',maskname,' ',filtername
+    endelse ;if isstar
+  if sxpar(d2hdr,'SLIT') eq 1 then yexpect=yexpect-4 ; account for the bottom slit.
+  yexpect=yexpect-yshift
+  yexpect=yexpect
     
     
     TEMP=readfits(path_to_output+'/'+twodfilename,twodhdr,exten_no=1,/silent)
     
-    sxaddpar,hdr0,'CRVAL1',sxpar(twodhdr,'CRVAL1'),/savecomment
-    sxaddpar,hdr0,'CDELT1',sxpar(twodhdr,'CDELT1'),/savecomment
-    sxaddpar,hdr0,'CRPIX1',sxpar(twodhdr,'CRPIX1'),/savecomment
-    sxaddpar,hdr0,'EXPTIME',sxpar(twodhdr,'EXPTIME'),/savecomment
-    
-    sxaddpar,hdr,'CRVAL1',sxpar(twodhdr,'CRVAL1'),/savecomment
-    sxaddpar,hdr,'CDELT1',sxpar(twodhdr,'CDELT1'),/savecomment
-    sxaddpar,hdr,'CRPIX1',sxpar(twodhdr,'CRPIX1'),/savecomment
-    sxaddpar,hdr,'EXPTIME',sxpar(twodhdr,'EXPTIME'),/savecomment
-    
     
     sxaddpar,hdr0,'YEXPECT',yexpect,/savecomment
     sxaddpar,hdr,'YEXPECT',yexpect,/savecomment
-    sxaddpar,hdr0,'MINW',minwidth,/savecomment
-    sxaddpar,hdr,'MINW',minwidth,/savecomment
     
     writefits,filenames[i],'',hdr0
     writefits,filenames[i],fopt,hdr,/append
@@ -3192,6 +3182,7 @@ pro bmep_mosdef_update_yexpect
     sxaddpar,hdr,'CRPIX1',1
     sxaddpar,hdr,'CTYPE1','LINEAR'
     writefits,filenames[i],ydata,hdr,/append
+    writefits,filenames[i],ydataERR,hdr,/append
     
   endfor
   cd,original_dir
@@ -3614,41 +3605,12 @@ pro bmep_mosdef_rereduce_old
 end
 
 pro bmep_mosdef_literal_reextraction
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+;to be filled out later.
 end
 
 
 pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
-
+  message,'dont run this program'
   ;setup
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
@@ -3714,20 +3676,7 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
   data=readfits(filenames[0],hdr,exten_no=1,/silent)
   PS_Start, Filename=backup_folder_name+'_'+sss(sxpar(hdr,'MSKNM'))+'_comparison.ps',/quiet
   
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+
   
   ;loop through 1d spectra
   for i=0,n_elements(filenames)-1 do begin
@@ -4126,18 +4075,7 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
               sxaddpar,hdr,'CRPIX1',1
               sxaddpar,hdr,'CTYPE1','LINEAR'
               writefits,filenames[i],newydata,hdr,/append
-                
-                
-                
-                
-                
-         
-                
-                
-                
-                
-                
-                
+              writefits,filenames[i],newydataerr,hdr,/append
                 
                 
                 
@@ -4954,7 +4892,7 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
       snrimg[index]=0.0
       
       snr2sigCut=snrimg
-      index=where(snrimg lt 2.,ct)
+      index=where(snrimg lt 1.5,ct)
       if ct gt 0 then snr2sigCut[index]=0.0
 
       
@@ -5005,7 +4943,7 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
       big_img[*,ny*0:ny*1-1]=bytscl(sciimg,top=255,/NAN,$
         min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))   ;science img
       big_img[*,ny*1:ny*2-1]=bytscl(snr2sigCut,top=255,/NAN,$
-        min=0.0,max=2.0)   ;snr img
+        min=0.0,max=2.5)   ;snr img
         
         
       ;calculate where object SHOULD be!
@@ -5053,13 +4991,13 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
       redshift_suspect=sxpar(shdr,'Z_SPEC')
       if redshift_suspect le 0 then redshift_suspect=sxpar(shdr,'Z_GRISM')
       if redshift_suspect le 0 then redshift_suspect=sxpar(shdr,'Z_PHOT')
-      print,'redshift_suspect ',redshift_suspect
+      print,'redshift suspect ',redshift_suspect
       if redshift_suspect GT 0 THEN BEGIN
         FOR k=0,n_elements(linenames)-1 do begin
           linewave=linewavels[k] * (1.0+redshift_suspect)
           if linewave gt min(wavel) and linewave lt max(wavel) then begin
             index=where(abs(wavel-linewave) eq min(abs(wavel-linewave)),ct)
-            print,index
+;            print,index
             if ct eq 1 then big_img[index,ny-20:ny+20]=255
             endif
           ;xyouts
