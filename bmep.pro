@@ -96,8 +96,8 @@ pro bmep_auto_width_calculator,j,centerarr,state,order,bkgndl,bkgndr,$
     /ynozero,yr=[minmax([snroptarr,snrboxarr])]
   cgplot,sigmaarr,snrboxarr,psym=-4,/overplot
   cgplot,[widtharr[j],widtharr[j]]/gwidth[j],[-1000,10000],/overplot
-  cgtext,0.13,1.1,ssi(leftstatspos),/normal
-  cgtext,0.13,1.0,ssi(rightstatspos),/normal
+  cgtext,0.13,1.0,ssi(leftstatspos),/normal
+  cgtext,0.13,0.95,ssi(rightstatspos),/normal
   
   cgplot,sigmaarr,avgoptarr,psym=-6,$
     title='average flux vs width',xtitle=' total width (sigma)',$
