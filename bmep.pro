@@ -15,8 +15,15 @@ pro bmep_auto_width_calculator,j,centerarr,state,order,bkgndl,bkgndr,$
   print,'  \hline'
   print,'Width & SNR boxcar & SNR optimal   & mean box & mean opt & total flux \\ \hline'
   
+  sigmaarr=[]
+  snroptarr=[]
+  snrboxarr=[]
+  avgoptarr=[]
+  avgboxarr=[]
+  
+
   ;loop throught widths to see which is best SNR
-  for test_width=2.0,8.0,0.1 do begin
+  for test_width=2.5,8.0,0.15 do begin
     test_width_arr=replicate(test_width,n_elements(widtharr))
     
     ;extract new profile
@@ -42,7 +49,7 @@ pro bmep_auto_width_calculator,j,centerarr,state,order,bkgndl,bkgndr,$
 ;      ' & ',total(fopt[index]),' \\ \hline' ; mean val   
 
     
-    ;print info in style of LaTeX
+    ;print info in style of NOT LaTeX
     print,test_width,$ ;width
       '  ',momentresult[0]/std_dev,$ ; snr box
       '  ',momentresultopt[0]/std_devopt,$ ; snr optimal
@@ -52,8 +59,81 @@ pro bmep_auto_width_calculator,j,centerarr,state,order,bkgndl,bkgndr,$
       '  ',total(fopt[index]),' ' ; mean val   
 
 
-      
+  if gwidth[j] gt 0 then sigmaarr=[sigmaarr,test_width/gwidth[j]] $
+    else sigmaarr=[sigmaarr,test_width]
+  snroptarr=[snroptarr,momentresultopt[0]/avg(fopterr[index])]
+  snrboxarr=[snrboxarr,momentresult[0]/avg(ferr[index])]
+  avgoptarr=[avgoptarr,momentresultopt[0]]
+  avgboxarr=[avgboxarr,momentresult[0]] 
   endfor ; test_width
+  
+  ;get name of plot.
+  extrainfo1=state.extrainfo1
+  extrainfo2=state.extrainfo2
+  extrainfo3=state.extrainfo3
+  if j eq 0 then suffix='' else suffix='-'+ssi(j)
+
+  ;extract original name from fits header.
+  index=WHERE(extrainfo1 eq 'MSKNM',ct)
+  if ct eq 0 then message,'ERROR: MASKNAME (MSKNM) IS NOT DEFINED IN EXTRAINFO1'
+  fitsfilenm=extrainfo2[index]+'.'
+  index=WHERE(extrainfo1 eq 'FILTNM',ct)
+  if ct eq 0 then message,'ERROR: FILTERNAME (FILTNM) IS NOT DEFINED IN EXTRAINFO1'
+  fitsfilenm=fitsfilenm+extrainfo2[index]+'.'
+  index=WHERE(extrainfo1 eq 'SLITNM',ct)
+  if ct eq 0 then message,'ERROR: SLITNAME (SLITNM) IS NOT DEFINED IN EXTRAINFO1'
+  fitsfilenm=fitsfilenm+extrainfo2[index]+suffix
+  fitsfilenm=fitsfilenm[0]
+  print,'saving ',state.savepath+'profile_'+fitsfilenm+'.ps'
+  ps_start,state.savepath+'profile_'+fitsfilenm+'.ps'
+  pmsave=!p.multi
+  !p.multi=[0,1,1]
+  
+  
+  cgplot,sigmaarr,snroptarr,psym=-6,$
+    title='SNR vs width',xtitle=' total width (sigma)',$
+    ytitle='square=optimal, diamond=boxcar',$
+    /ynozero,yr=[minmax([snroptarr,snrboxarr])]
+  cgplot,sigmaarr,snrboxarr,psym=-4,/overplot
+  cgplot,[widtharr[j],widtharr[j]]/gwidth[j],[-1000,10000],/overplot
+  cgtext,0.13,1.1,ssi(leftstatspos),/normal
+  cgtext,0.13,1.0,ssi(rightstatspos),/normal
+  
+  cgplot,sigmaarr,avgoptarr,psym=-6,$
+    title='average flux vs width',xtitle=' total width (sigma)',$
+    ytitle='square=optimal, diamond=boxcar',$
+    /ynozero,yr=[minmax([avgoptarr,avgboxarr])]
+  cgplot,sigmaarr,avgboxarr,psym=-4,/overplot
+  cgplot,[widtharr[j],widtharr[j]]/gwidth[j],[-1000,10000],/overplot
+  
+  
+  if gwidth[j] gt 0 then sigmaarr=sigmaarr*gwidth[j]
+  
+  
+    cgplot,sigmaarr,snroptarr,psym=-6,$
+    title='SNR vs width',xtitle=' half width (pixels)',$
+    ytitle='square=optimal, diamond=boxcar',$
+    /ynozero,yr=[minmax([snroptarr,snrboxarr])]
+  cgplot,sigmaarr,snrboxarr,psym=-4,/overplot
+  cgplot,[widtharr[j],widtharr[j]],[-1000,10000],/overplot
+  cgtext,0.13,1.0,ssi(leftstatspos),/normal
+  cgtext,0.13,0.95,ssi(rightstatspos),/normal
+  
+  cgplot,sigmaarr,avgoptarr,psym=-6,$
+    title='average flux vs width',xtitle=' half width (pixels)',$
+    ytitle='square=optimal, diamond=boxcar',$
+    /ynozero,yr=[minmax([avgoptarr,avgboxarr])]
+  cgplot,sigmaarr,avgboxarr,psym=-4,/overplot
+  cgplot,[widtharr[j],widtharr[j]],[-1000,10000],/overplot
+  
+  if gwidth[j] gt 0 then sigmaarr=sigmaarr/gwidth[j]
+  cgplot,sigmaarr,snroptarr,psym=-6,$
+    title='SNR vs width',xtitle=' total width (sigma)',$
+    ytitle='optimal snr',$
+    /ynozero
+  cgplot,[widtharr[j],widtharr[j]]/gwidth[j],[-1000,10000],/overplot
+  
+  ps_end
   ;rerun extraction to fix damage.
   bmep_extraction_subpixel,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
     printp,fitgaussp,plotp,slidep,pwindowsize,singlep,$
@@ -61,7 +141,9 @@ pro bmep_auto_width_calculator,j,centerarr,state,order,bkgndl,bkgndr,$
     gwidth,gcenter,$
     $;OUTPUTS
     F,ferr,Fopt,fopterr,img2d_nobkgnd,sky_reslut_arr,sky_residuals,revisevar=state.revisevar,/quiet
-  print,'\end{tabular}'
+  ;print,'\end{tabular}'
+ !p.multi = pmsave
+  
 end
 
 ;follows horne 86 method of flagging cosmic rays.  it also flags anything
@@ -239,6 +321,25 @@ function bmep_calc_slitloss,gauss_sigma
 end
 
 
+pro bmep_clean_imgs,sci,var,silent=silent
+
+;index=where(noise_img eq 99,/null)
+;sciimg[index]=0.0
+;noise_img[index]=0.0
+
+index=where(finite(var) eq 0 or finite(sci) eq 0,ct,/null)
+if ~keyword_set(silent) then print,'there are ',ct,' nan vals'
+sci[index]=0.0
+var[index]=0.0
+var=double(var)
+sci=double(sci)
+
+
+
+end
+
+
+
 ;check if a directory exists.
 ;stolen from somewhere....
 function bmep_dir_exist, dir
@@ -307,7 +408,7 @@ pro bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername
     monitorfix=monitorfix,vacuum=vacuum
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
-  if ~keyword_set(extrainfo1) then extrainfo1=['0']
+  if ~keyword_set(extrainfo1) then message,'must have ex info 1'
   if ~keyword_set(extrainfo2) then extrainfo2=['0']
   if ~keyword_set(extrainfo3) then extrainfo3=['0']
   if ~keyword_set(savetext) then savetext=0
@@ -444,10 +545,10 @@ end ; end of extraction
 
 
 ;extract the spectra!! algorithm from horne 1986
-pro bmep_extraction_simple_subpixel,sciimg,var_img,ydata,ypos,width,gcenter,gwidth,f,ferr,fopt,fopterr,p
+pro bmep_extraction_simple_subpixel,sciimg,var_img,ydata,ypos,width,gcenter,gwidth,f,ferr,fopt,fopterr,p,fitgaussp
 
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
-    bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
+    bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut,bmep_find_p_simple
 
   f=[]
   ferr=[]
@@ -481,15 +582,17 @@ pro bmep_extraction_simple_subpixel,sciimg,var_img,ydata,ypos,width,gcenter,gwid
   
   ;optimal extraction based on horne 1989
   ;step 5 (calculate p)
-  if gcenter lt -1 then message,'error, gcenter lt 0'
-  if gwidth lt -1 then message,'error, gwidth lt 0'
-  xarr_fit=[min(xarr_small)-bottomremainder,float(xarr_small),max(xarr_small)+topremainder]
-  p_small_wider=gaussian(xarr_fit,[1.0,gcenter,gwidth])
-  p_small_wider[0]=p_small_wider[0] * bottomremainder
-  p_small_wider[-1]=p_small_wider[-1] * topremainder
-  
-  p=replicate(0.0,n_elements(xarr_big))
-  p[xarr_small_wider]=p_small_wider
+  if gcenter lt -1 then BEGIN
+    p=bmep_find_p_simple(ydata,bottomint,topint,fitgaussp)
+    endif else begin
+      xarr_fit=[min(xarr_small)-bottomremainder,float(xarr_small),max(xarr_small)+topremainder]
+      p_small_wider=gaussian(xarr_fit,[1.0,gcenter,gwidth])
+      p_small_wider[0]=p_small_wider[0] * bottomremainder
+      p_small_wider[-1]=p_small_wider[-1] * topremainder
+      p=replicate(0.0,n_elements(xarr_big))
+      p[xarr_small_wider]=p_small_wider
+      endelse
+      
   p=double(p)
   if total(p) ne 0 then p=p/total(p)
 
@@ -498,8 +601,6 @@ pro bmep_extraction_simple_subpixel,sciimg,var_img,ydata,ypos,width,gcenter,gwid
 
   ;loop through columns
   for i=0,n_elements(sciimg[*,0])-1 do begin
-;    if bottomremainder lt 0.2 then bottomremainder=0.0
-;    if topremainder lt 0.2 then topremainder=0.0
     ;recalculate fractions to add to top/bottom of extractions.
     botadd= sciimg[i,bottomint-1] * bottomremainder
     botadderr= var_img[i,bottomint-1] * bottomremainder
@@ -731,6 +832,9 @@ pro bmep_extraction_subpixel,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
   topint=fix(centerarr[j]+widtharr[j])<(n_elements(state.data[0,*])-2)
   topremainder=((centerarr[j]+widtharr[j])-topint) < 1.0
   
+  ;check for insanity
+  if topremainder lt 0 or bottomremainder lt 0 then message,'insanity'
+  
   ;calculate array to extract
   xarr_small=indgen(topint-bottomint+1)+bottomint
   xarr_small_wider=findgen(topint-bottomint+3)+bottomint-1
@@ -785,8 +889,10 @@ pro bmep_extraction_subpixel,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
   
   endif else begin
     p=bmep_find_p(state,bkgndl,bkgndr,order,$
-    round(centerarr[j]-widtharr[j]),round(centerarr[j]+widtharr[j]),$
+    bottomint-1,topint+1,$
     printp,fitgaussp,plotp,xarr_big,bkgnd_naverage)
+    p[bottomint-1]=p[bottomint-1] * bottomremainder
+    p[topint+1]=p[topint+1] * topremainder
     
     
       plotshift=poly(centerarr[j],bmep_fit_sky(state.ydata,bkgndl,bkgndr,order,bkgnd_naverage))
@@ -1079,7 +1185,54 @@ function bmep_find_p,state,bkgndl,bkgndr,order,bottomint,topint,$
   return,p
 end
 
+function bmep_find_p_simple,ydata,bottomint,topint,fitgaussp
 
+  ;calculate sky
+  xarr_big=findgen(n_elements(ydata))
+  ;calculate p
+  pguess=ydata
+  
+  ; outside of width, p is zero
+  index=where(xarr_big lt bottomint or xarr_big gt topint,/null)
+  pguess[index]=0.0
+  
+  ;enforce positivity
+  index=where(pguess lt 0,/null)
+  pguess[index]=0.0
+  
+  ;normalize
+  if total(pguess) ne 0 then pguess=pguess/total(pguess)
+  
+  ;fit p profile to a gaussian if desired
+  if fitgaussp then begin
+    ;gresult=gaussfit(double(xarr_big),double(p),nterms=3)
+    
+    gresult=MPFITPEAK(double(xarr_big[bottomint:topint]),double(pguess[bottomint:topint]),$
+      coeff,nterms=3,/gaussian,status=status)
+    p=replicate(0.0,n_elements(pguess))
+    if status eq 1 then p[bottomint:topint]=gresult else p=pguess
+    
+    ;set p to 0 outside the width of extraction.
+    index=where(xarr_big lt bottomint or xarr_big gt topint,/null)
+    p[index]=0.0
+    
+    ;normalize p
+    index=where(p lt 0,/null)
+    p[index]=0.0
+    if total(p) ne 0 then p=p/total(p)
+    
+    
+  endif else p=pguess
+  
+  if total(p) eq 0 then begin
+    index=where(xarr_big ge bottomint or xarr_big ge topint,/null)
+    p[index]=1.0
+    p=p/total(p)
+    endif
+  
+  ;return
+  return,p
+end
 
 
 
@@ -1301,7 +1454,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
     
   state = oWin.uvalue
   IF Release then return, 1
-  
+  if string(character) eq 'e' then character='b'
   CASE string(character) OF
     'b': begin
       print,'Now entering extraction mode. press q to exit'
@@ -1374,6 +1527,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
       findautowidth=1 ;flag
       autoextractflag=1 ;flag
       subpixelwidthtest=0
+      viewsnr=0
       
       usercomment='No Comment'
       usercommentcode=0
@@ -1554,7 +1708,9 @@ FUNCTION bmep_KeyboardHandler, oWin, $
             ;;                n_elements(img2d_nobkgnd[0,*])],overplot=oplotval,$
             ;;                  min_value=bmep_percent_cut(abs(img2d_nobkgnd),5.0),$
             ;;                  max_value=bmep_percent_cut(abs(img2d_nobkgnd),95.0),location=[0,0],margin=[0,0,0,0])
-              
+            
+            if viewsnr eq 0 then begin
+            
             ;do not plot bad pixels
             bmep_calc_skyline_mask_v2,ferr,skymaskpercent,skymask
             
@@ -1563,7 +1719,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
             if ct gt 5 and ct lt 300 then yr=minmax(fopt[index])
             
             plot,state.wavel,f*skymask,xrange=xr,$
-              yrange=yr,/nodata
+              yrange=yr,/nodata,title='B O X C A R'
             oplot,state.wavel,f,color=254,psym=3
             oplot,state.wavel,f*skymask
             if subpixeltest eq 1 then $
@@ -1579,7 +1735,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
             
             
             plot,state.wavel,fopt*skymask,xrange=xr,$
-              title='optimal',yrange=yr,/nodata
+              title='OPTIMAL',yrange=yr,/nodata
             oplot,state.wavel,fopt,color=254,psym=3
             oplot,state.wavel,fopt*skymask
             if subpixeltest eq 1 then $
@@ -1591,6 +1747,56 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               xyouts,avg([state.wavel[state.l_bins[k]],state.wavel[state.r_bins[k]]]),$
                 0.0,ssi(k)
             endfor
+            
+            endif else begin
+              
+              
+              index=where(ferr ne 0)
+              yplotdata=f[index]/ferr[index]
+              xplotdata=state.wavel[index]
+              yr=[bmep_percent_cut(yplotdata,2),bmep_percent_cut(yplotdata,99.9)]
+              index=where(state.wavel ge min(xr) and state.wavel le max(xr),ct)
+              
+              if ct gt 5 and ct lt 300 then yr=minmax(yplotdata[index])
+              
+              plot,xplotdata,yplotdata,xrange=xr,$
+                yrange=yr,TITLE='BOXCAR SNR'
+              
+              NBINS=state.n_bins
+              for k=0,NBINS-1 do begin
+                oplot,[state.wavel[state.l_bins[k]],state.wavel[state.l_bins[k]]],minmax(yr),color=255
+                oplot,[state.wavel[state.r_bins[k]],state.wavel[state.r_bins[k]]],minmax(yr),color=255
+                xyouts,avg([state.wavel[state.l_bins[k]],state.wavel[state.r_bins[k]]]),$
+                  0.0,ssi(k)
+              endfor
+              
+              index=where(fopterr ne 0)
+              yplotdata=fopt[index]/fopterr[index]
+              xplotdata=state.wavel[index]
+              plot,xplotdata,yplotdata,xrange=xr,$
+                title='optimal SNR',yrange=yr
+                
+              for k=0,NBINS-1 do begin
+                oplot,[state.wavel[state.l_bins[k]],state.wavel[state.l_bins[k]]],minmax(yr),color=255
+                oplot,[state.wavel[state.r_bins[k]],state.wavel[state.r_bins[k]]],minmax(yr),color=255
+                xyouts,avg([state.wavel[state.l_bins[k]],state.wavel[state.r_bins[k]]]),$
+                  0.0,ssi(k)
+                endfor
+                
+              ;do some statistics.
+              if leftstatspos ne -1.0 then begin
+                index=where(xplotdata ge leftstatspos and xplotdata le rightstatspos,ct)
+                if ct le 3 then print,'no flux between cursor marks' else begin
+                  result=histogram(yplotdata[index],min=0.0,max=5.0,nbins=6,locations=locations)
+                  for k=0,n_elements(locations)-2 do print,locations[k], ' to ',locations[k+1], ' : ',result[k], ' ',result[k]/total(result)
+                  print,locations[-1], ' and higher. ',result[k], ' ',result[k]/total(result)
+                  endelse
+              endif
+                
+                
+                
+                
+              endelse; viewsnr eq 1
             
             
             ;plot verticl lines where should be ha... etc 
@@ -1615,10 +1821,17 @@ FUNCTION bmep_KeyboardHandler, oWin, $
             
             if redshift_suspect GT 0 THEN BEGIN
               FOR k=0,n_elements(linenames)-1 do begin
-                oplot,[linewavels[k] * (1.0+redshift_suspect),linewavels[k] * (1.0+redshift_suspect)],minmax(fopt),color=456789
+                oplot,[linewavels[k] * (1.0+redshift_suspect),linewavels[k] * (1.0+redshift_suspect)],minmax(yr),color=456789
                 ;xyouts
                 endfor
               endif
+            
+            
+            
+            
+            
+            
+            
             
             
             
@@ -1636,6 +1849,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
             
             ;find statistics of a certain area
             if leftstatspos ne -1.0 then begin
+              ;bmep_plot_stats,state,leftstatspos,rightstatspos,f,fopt,ferr,fopterr
               bmep_plot_stats,state,leftstatspos,rightstatspos,f,fopt,ferr,fopterr
               index=where(state.wavel ge leftstatspos and state.wavel le rightstatspos,ct)
               if ct le 3 then print,'no flux between cursor marks' else begin
@@ -1963,6 +2177,7 @@ if key eq '?' then begin
   print,'R - Do sub-pixel extraction width test.'
   print,'v - Toggle plotting errors to data plot'
   print,'x - Change x range plotted'
+  print,'y - view SNR instead of normal spectra'
   print
   print,'---Extraction options---'
   print,'e - Toggle extraction of the spectra'
@@ -2032,6 +2247,7 @@ if key eq 'h' then begin
   print,'W - Increase width of extraction area'
   print,'x - Change x range plotted'
   print,'X - Fit redshift.'
+  print,'y - view snr instead of normal spectra'
   print,'z - Delete sky area (all)'
   print,'Z - Guess redshift'
 endif
@@ -2590,6 +2806,21 @@ xr=xr_save
 Xexit:
 endif;key X
 
+
+;change the automatically extract flag.
+if key eq 'y' then begin
+  if viewsnr eq 1 then BEGIN
+    viewsnr=0
+    print,'set to NOT view snr.'
+    endif else begin
+      viewsnr=1
+      print,'set to view snr'
+      endelse
+  endif
+
+
+
+
 ;delete background arrays.
 IF key EQ 'z' THEN BEGIN
 
@@ -2650,7 +2881,7 @@ end
 'h': begin
   print,'you are currently in PROFILE MODE. Hit "b" to go into extraction mode.'
   print,'begin help'
-  print,'b - go into extraction mode'
+  print,'e or b - go into extraction mode'
   print,'r - reset cross section'
   print,'c - continuum mode'
   print
@@ -2659,7 +2890,7 @@ end
 ELSE: begin
   print,'you are currently in PROFILE MODE. Hit "b" to go into extraction mode.'
   print,'begin help'
-  print,'b - go into extraction mode'
+  print,'e or b - go into extraction mode'
   print,'r - reset cross section'
   print,'c - continuum mode'
   print
@@ -2899,7 +3130,7 @@ function bmep_make_hdr,data_make,extrainfo1,extrainfo2,extrainfo3,j,centerarr,wi
   sxaddpar, Header, 'GAUSSP', fitgaussp,' Flag for if profile is fit to gaussian'
   sxaddpar, Header, 'CSIGMA', cosmic_sigma,' Sigma for cosmic ray rejection'
   sxaddpar, Header, 'ORDER', order,' Order of background fit (not for mosfire data)'
-  sxaddpar, Header, 'NBKGND', order,' Number of areas that determine the background'
+  sxaddpar, Header, 'NBKGND', n_elements(bkgndl),' Number of areas that determine the background'
   FOR jj=0,n_elements(bkgndl)-1 do begin
     sxaddpar, Header, 'LBKGND'+ssi(jj+1), bkgndl[jj],' Left pixel number of background area'
     sxaddpar, Header, 'RBKGND'+ssi(jj+1), bkgndr[jj],' Right pixel number of background area'
@@ -2916,7 +3147,7 @@ function bmep_make_hdr,data_make,extrainfo1,extrainfo2,extrainfo3,j,centerarr,wi
   endfor
 
   
-  sxaddpar, Header, 'CONTMODE', state.cont_mode,' Flag for "continuum mode"'
+  sxaddpar, Header, 'CONTMODE', state.cont_mode,' Flag for "continuum mode" (now obsolete, check cmode keywords)'
   if objnum eq -1 then sxaddpar, Header, 'OBJNUM', J+1, $
     ' Object number. 1=primary, >2 non-primary' $
   else sxaddpar, Header, 'OBJNUM', objnum,$
@@ -3099,7 +3330,7 @@ end
 
 
 pro bmep_mosdef_update_yexpect
-;  stop ;hammer time
+  stop ;hammer time
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   !except=2 ;see division by zero errors instantly.
@@ -3193,6 +3424,7 @@ end
 
 
 pro bmep_mosdef_rereduce_old
+message,'dont run this program'
   stop
   ;setup
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
@@ -3604,8 +3836,84 @@ pro bmep_mosdef_rereduce_old
   print,'done rereduciing'
 end
 
+;.com bmep_mosdef_blind
+;bmep_mosdef_blind
+
 pro bmep_mosdef_literal_reextraction
-;to be filled out later.
+message,'dont run this program'
+ !except=1 ;see division by zero errors instantly.
+  astrolib
+  starttime=systime(/seconds)
+
+  ;create list of 1d spec
+  path_to_output=getenv('BMEP_MOSDEF_2D')
+  if path_to_output eq '' then message,'run in terminal window pls'
+  
+  ;get where to save output of extraction program
+  savepath=getenv('BMEP_MOSDEF_1D')
+  cd,savepath,current=original_dir
+
+  ;read in list of 1d spectra
+  filenames = file_search('*.1d.fits')
+  print,'list contains ',n_elements(filenames),' objects
+  
+  ;create backup folder
+  foldermade=0
+  prefixnum=0
+  while foldermade eq 0 do begin
+    if prefixnum lt 10 then $
+      backup_folder_name='00'+ssi(prefixnum)+'backup' else $
+      if prefixnum lt 100 then $
+      backup_folder_name= '0'+ssi(prefixnum)+'backup' else $
+      backup_folder_name=  ''+ssi(prefixnum)+'backup'
+      
+    if bmep_dir_exist(backup_folder_name) then print,backup_folder_name+' exists' else begin
+      file_mkdir,backup_folder_name
+      foldermade=1
+    endelse
+    prefixnum++
+  endwhile
+  
+for i =0,n_elements(filenames)-1 do begin
+  temp=readfits(filenames[i],hdr0,exten_no=0,/silent)
+  data=readfits(filenames[i],hdr1d,ex=1,/SILENT)
+  ydata=readfits(filenames[i],hdr1dex5,ex=5,/SILENT)
+  ydataerr=readfits(filenames[i],ex=6,/SILENT)
+  filename2d=sxpar(hdr1d,'FILNM',count=count)
+  if count eq 1 and file_test(path_to_output+filename2d) and sxpar(hdr1d,'BLIND') eq 0 then begin
+    sciimg=readfits(path_to_output+filename2d,hdr2d,ex=1,/SILENT)
+    sigimg=readfits(path_to_output+filename2d,hdr2d,ex=4,/SILENT)
+    bmep_clean_imgs,sciimg,sigimg,silent=1
+    var_img=sigimg*sigimg
+    
+    print,filenames[i],sxpar(hdr1d,'GCENT',count=count),$
+      sxpar(hdr1d,'GWIDTH',count=count),sxpar(hdr1d,'YPOS',count=count),$
+      sxpar(hdr1d,'WIDTH',count=count)
+      
+    bmep_extraction_simple_subpixel,sciimg,var_img,ydata,$
+      sxpar(hdr1d,'YPOS',count=count),sxpar(hdr1d,'WIDTH',count=count),$
+      sxpar(hdr1d,'GCENT',count=count),sxpar(hdr1d,'GWIDTH',count=count),$
+      f,ferr,fopt,fopterr,p,sxpar(hdr1d,'GAUSSP',count=count)
+    
+    spawn,'mv '+filenames[i]+' '+backup_folder_name
+    writefits,filenames[i],'',hdr0
+    writefits,filenames[i],fopt,hdr1d,/append
+    writefits,filenames[i],fopterr,hdr1d,/append
+    writefits,filenames[i],f,hdr1d,/append
+    writefits,filenames[i],ferr,hdr1d,/append
+    writefits,filenames[i],double(ydata),hdr1dex5,/append
+    writefits,filenames[i],double(ydataerr),hdr1dex5,/append
+    
+    endif ELSE BEGIN;not blind 2d file found,
+      if count eq 0 then print,' WARNING, 2D IMAGE KEYWORD NOT FOUND'
+      if file_test(path_to_output+filename2d) eq 0 then print,' WARNING, 2D IMAGE NOT FOUND AT ALL...'
+      if sxpar(hdr1d,'BLIND') eq 1 then print,filenames[i],' is blind'
+      ENDELSE
+  endfor; i 
+
+print,'that took ',round(systime(/seconds)- starttime),' seconds
+print,' NOW YOU MUST RUN bmep_mosdef_blind'
+
 end
 
 
@@ -3726,7 +4034,7 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
       ;read in NEW! 2d image
       if file_test(path_to_output+'/'+sci_file_name) then begin
         sciimg=readfits(path_to_output+'/'+sci_file_name,D2hdr,exten_no=1,/silent)
-        var_img=readfits(path_to_output+'/'+sci_file_name,D2hdrnois,exten_no=3,/silent)
+        var_img=readfits(path_to_output+'/'+sci_file_name,D2hdrnois,exten_no=4,/silent)
         ;clean image
         index=where(finite(var_img) eq 0,/null)
         sciimg[index]=0.0
@@ -3751,8 +4059,8 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
         endfor
         
         ;collapse columns based on wavelength
-        newydata=replicate(0.0,n_elements(sciimg[0,*]))
-        newydataerr=replicate(0.0,n_elements(sciimg[0,*]))
+        newydata=replicate(0.d,n_elements(sciimg[0,*]))
+        newydataerr=replicate(0.d,n_elements(sciimg[0,*]))
         FOR jj=0,N_BINS-1 do begin
           x0=left_pixels[jj]
           x=right_pixels[jj]
@@ -3926,7 +4234,7 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
                 CGTEXT,0.16,0.85,'EXTRACTED',/normal
                 
                 ;extract and save
-                bmep_extraction_simple_subpixel,sciimg,var_img,newydata,newcenter,newwidth,coeff[1],coeff[2],f,ferr,fopt,fopterr,p
+                bmep_extraction_simple_subpixel,sciimg,var_img,newydata,newcenter,newwidth,coeff[1],coeff[2],f,ferr,fopt,fopterr,p,1
                 
                 p=p/max(p)
                 p=p*max(yfit)
@@ -3981,8 +4289,9 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
         $
         'Z_GRISM',$
         'Z_SPEC',$
-        'SCALING',$
-        'SEEING' $
+        'SEEING', $
+        'SLITWIDT',$
+        'C_OFFSET'$
         ]
         
         extrainfo3=[$
@@ -4023,8 +4332,9 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
         $
         ' GRISM redshift from 3D-HST  ', $
         ' External spectroscopic redshift', $
-        ' Scaling factor; cts/s to erg/s/cm^2/Angstrom', $
-        ' FWHM measured by 2D reduction code [arcsec]' $
+        ' FWHM measured by 2D reduction code [arcsec]', $
+        ' Slit width [arcsec]', $
+        ' Offset corrected by star position [arscec]' $
         ]
         
        
@@ -4114,7 +4424,8 @@ pro bmep_mosdef_rereduce_v01_to_v02,path_to_output=path_to_output
   ps_end
   !p.multi=[0,1,1]
   
-;  bmep_mosdef_update_yexpect
+  ;this step must be run.
+  bmep_mosdef_update_yexpect
   
   print,'there are ',file_lines(backup_folder_name+'_undone_info.txt')-3,' undone'
   print,'out of ',n_elements(filenames),' files
@@ -4385,7 +4696,7 @@ end
 
 
 
-pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
+pro bmep_mosdef_v01,path_to_output=path_to_output,monitorfix=monitorfix
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   !except=2 ;see division by zero errors instantly.
@@ -4569,45 +4880,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
       del=10.
       botpercent=del
       toppercent=100.-del
-      
-      kernel = GAUSSIAN_FUNCTION([500,5], WIDTH=15, MAXIMUM=255,/double)
-      kernel=kernel-avg(kernel)
-      kernel=[[0,-1,0],$
-              [-1,5,-1],$
-              [0,-1,0]]      
-      kernel=[[-1,-1,-1],$
-              [-1,8,-1],$
-              [-1,-1,-1]]     
-      kernel=findgen(11,11)
-      for ii=0,n_elements(kernel[*,0])-1 do $
-        for jj=0,n_elements(kernel[*,0])-1 do $
-        kernel[ii,jj]=(-1.0)*bmep_LoG(ii-n_elements(kernel[*,0])/2,jj-n_elements(kernel[*,0])/2,3) 
-;      kernel=[[ 0,-1,-1,-1, 0],$
-;              [-1, 3, 3, 3,-1],$
-;              [-1, 3, 5, 3,-1],$
-;              [-1, 3, 3, 3,-1],$
-;              [ 0,-1,-1,-1, 0]]      
-;      kernel=[[ 0,-1,-1,-1, 0],$
-;              [-1, 3, 5, 3,-1],$
-;              [-1, 5, 7, 5,-1],$
-;              [-1, 3, 5, 3,-1],$
-;              [ 0,-1,-1,-1, 0]]
-      kernel=kernel-avg(kernel)
-      
-;      print,kernel
-      conv_img=convol((sciimg),kernel,/edge_zero,/normalize)
-      for ii=0,n_elements(conv_img[*,0])-1 do conv_img[ii,*]=conv_img[ii,*]-aVG(conv_img[ii,*])
 
-;      big_img=findgen(nx,(ny*4))
-;      big_img[*,ny*0:ny*1-1]=bytscl(sciimg,top=255,/NAN,$
-;        min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))   ;science img
-;      big_img[*,ny*1:ny*2-1]=bytscl(conv_img,top=255,/NAN,$
-;        min=bmep_percent_cut(conv_img,00),max=bmep_percent_cut(conv_img,100))  ;var img 0,15
-;      big_img[*,ny*2:ny*3-1]=bytscl(snrimg,top=255,/NAN,$;min=98.5,max=99.0)
-;        min=bmep_percent_cut(snrimg,botpercent),max=bmep_percent_cut(snrimg,90.0))   ;snr img
-;      big_img[*,ny*3:ny*4-1]=bytscl(snr2sigCut,top=255,/NAN,$
-;        min=0.0,max=3.5)   ;snr img
-      
       
       big_img=findgen(nx,(ny*2))
       big_img[*,ny*0:ny*1-1]=bytscl(sciimg,top=255,/NAN,$
@@ -4728,11 +5001,12 @@ end
 
 
 
-pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
+pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   !except=2 ;see division by zero errors instantly.
   astrolib
+  print,"now running BMEP- Bill's mosfire extraction program"
   
   ;set output to what is in the envoirnment variable
   x=getenv('BMEP_MOSDEF_2D')
@@ -4867,14 +5141,7 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
       ;calculate variance image
       noise_img=readfits(filename, /SILENT,exten_no=4)
       ;clean image
-;      index=where(noise_img eq 99,/null)
-;      sciimg[index]=0.0
-;      noise_img[index]=0.0
-      index=where(finite(noise_img) eq 0,ct,/null)
-      print,'there are ',ct,' nan vals'
-      sciimg[index]=0.0
-      noise_img[index]=0.0
-      noise_img=double(noise_img)
+      bmep_clean_imgs,sciimg,noise_img
       var_img=noise_img*noise_img
       
       ;calculate wavel.
@@ -4885,14 +5152,14 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
       nx=n_elements(sciimg[*,0])
       
       ;snr image
-      index=where(var_img ne 0,ct)
+      index=where(var_img ne 0,/null)
       snrimg=sciimg
-      snrimg[index]=abs(sciimg[index]/sqrt(var_img[index]))
-      index=where(var_img eq 0,ct)
+      snrimg[index]=abs(sciimg[index]/(sqrt(var_img[index])))
+      index=where(var_img eq 0,/null)
       snrimg[index]=0.0
       
       snr2sigCut=snrimg
-      index=where(snrimg lt 1.5,ct)
+      index=where(snrimg lt 2.0,ct)
       if ct gt 0 then snr2sigCut[index]=0.0
 
       
@@ -5068,7 +5335,9 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
         'Z_SPEC',$
         'SCALING',$
         $
-        'SEEING'$
+        'SEEING',$
+        'SLITWIDT',$
+        'C_OFFSET'$
         ]
         
       extrainfo2=[$
@@ -5120,7 +5389,9 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
         string(sxpar(shdr,'Z_SPEC')),$
         string(sxpar(shdr,'SCALING')),$
         $
-        string(sxpar(shdr,'SEEING'))$
+        string(sxpar(shdr,'SEEING')),$
+        string(sxpar(shdr,'SLITWIDT')),$
+        string(sxpar(shdr,'C_OFFSET'))$
         ]
         
       ;comments
@@ -5173,7 +5444,9 @@ pro bmep_mosdef_new,path_to_output=path_to_output,monitorfix=monitorfix
         ' External spectroscopic redshift', $
         ' Scaling factor; cts/s to erg/s/cm^2/Angstrom', $
         $
-        ' FWHM measured by 2D reduction code [arcsec]' $
+        ' FWHM measured by 2D reduction code [arcsec]' ,$
+        ' Slit width [arcsec]', $
+        ' Offset corrected by star position [arscec]' $
         ]
         
         FOR K=1,sxpar(shdr,'N_OBS') do begin
@@ -5358,6 +5631,7 @@ pro bmep_plot_stats,state,leftstatspos,rightstatspos,f,fopt,ferr,fopterr
   statshift=0.0
   ;find area of interest.
   index=where(state.wavel ge leftstatspos and state.wavel le rightstatspos,ct)
+  print,'minmax wavel ',minmax(state.wavel[index])
   
   ;make sure there are enough stats points.
   if ct le 3 then print,'no flux between cursor marks' else begin
@@ -5380,6 +5654,21 @@ pro bmep_plot_stats,state,leftstatspos,rightstatspos,f,fopt,ferr,fopterr
       'SNR ebar:'+ssf(momentresult[0]/avg(ferr[index]))+'... '+$
       ssf(momentresultopt[0]/avg(fopterr[index])),/normal,charsize=2
     statshift=statshift-statspacing*3.0
+    
+    print,'moment box',momentresult
+    print,'stddev ',std_dev, ' var from moment sqrt: ',sqrt(momentresult[1])
+    print,' avg error bar ',avg(ferr[index])
+    print,moment(ferr[index])
+    
+    print
+    print
+    print,'moment opt ',momentresultopt
+    print
+    print,'stddev ',std_devopt, ' var from moment sqrt: ',sqrt(momentresultopt[1])
+    print,' avg error bar ',avg(fopterr[index])
+    print,moment(fopterr[index])
+    
+    
     
     ;plot vertical lines
     oplot_vert,leftstatspos,minmax(f),3
@@ -5429,17 +5718,17 @@ print,4
 seed=1234d
 img=randomu(seed,1000,1000)
 npix=float(n_elements(img))
-index1=where(img gt .95,ct1)
-index2=where(img le .95,ct2)
+index1=where(img gt .975,ct1)
+index2=where(img le .975,ct2)
 img[index1]=255
 img[index2]=0
 x=image(img)
 wait,1
-x.close
+;x.close
 print,5
 print,'BMEP_MOSDEF_2D is ',getenv('BMEP_MOSDEF_2D')
 print,'BMEP_MOSDEF_1D is ',getenv('BMEP_MOSDEF_1D')
-print,'BMEP_MOSDEF_MASKS is ',getenv('BMEP_MOSDEF_MASKS')
+;print,'BMEP_MOSDEF_MASKS is ',getenv('BMEP_MOSDEF_MASKS')
 print,'BMEP_MOSFIRE_DRP_2D is ',getenv('BMEP_MOSFIRE_DRP_2D')
 print,'BMEP_MOSFIRE_DRP_1D is ',getenv('BMEP_MOSFIRE_DRP_1D')
 print,'BMEP_MOSFIRE_DRP_MASKS is ',getenv('BMEP_MOSFIRE_DRP_MASKS')
@@ -5616,6 +5905,7 @@ pro bmep,path_to_output=path_to_output
   ;files should be in BMEP_MOSFIRE_DRP_2D/maskname/date/band/
   ;output will be saved in either BMEP_MOSFIRE_DRP_1D or
   ;BMEP_MOSFIRE_DRP_2D/maskname/date/1d_extracted/
+  print,"now running BMEP- Bill's mosfire extraction program"
   
   ;setup things
   !except=2

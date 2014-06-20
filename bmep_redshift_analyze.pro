@@ -35,31 +35,49 @@ forprint,masknames, filternames, slitnames, apnums,$
   comment="# maskname filter slit ap_no z zerr linename restwave obswave",$
   format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
 
+openw,lun,savepath+'00_redshift_catalog_slim_bmep.txt',/get_lun
+
 print,'mask slit apno redshift n_lines'
 masknames_nodup=masknames[rem_dup(masknames)]
 for i=0,n_elements(masknames_nodup)-1 do begin
   index=where(masknames eq masknames_nodup[i],ct)
+  zarr_small=zarr[index]
   slitnames_small=slitnames[index]
   zroundarr_small=zroundarr[index]
   apnums_small=apnums[index]
   slitnames_nodup=slitnames[rem_dup(slitnames_small)]
-  for j=0,n_elements(slitnames_nodup)-1 do begin
-    for jj=1,7 do begin
-      ;index is everything in this slit.
+  for j=0,n_elements(slitnames_nodup)-1 do begin ; loop through slits
+    for jj=1,7 do begin ;loop through possible aperatures
+      ;index is everything in this slit. and is the same aperture number.
       index=where(slitnames_small eq slitnames_nodup[j] and apnums_small eq jj,ct)
       if ct gt 0 then begin
         official_redshifts=zroundarr_small[index[rem_dup(zroundarr_small[index])]]
+        ca=[]
+        za=[]
         for k=0,n_elements(official_redshifts)-1 do begin
           ind=where(zroundarr_small[index] eq official_redshifts[k],ct)
-          print,masknames_nodup[i],slitnames_nodup[j]+' '+ssi(jj),(official_redshifts[k]/100.0),ct, $
-            format='(A10,A13,F6.2,I3)
+          print,masknames_nodup[i],slitnames_nodup[j]+' '+ssi(jj),avg(zarr_small[index[ind]]),ct, $
+            format='(A10,A13,F8.4,I3)'
+          ca=[ca,ct]
+          za=[za,avg(zarr_small[index[ind]])]
           endfor; k
-        endif; ct
+          ind=reverse(bsort(ca))
+          ca=ca[ind]
+          za=za[ind]
+          forprint,ca,za
+          if n_elements(ca) gt 1 then $
+          printf,lun,masknames_nodup[i],slitnames_nodup[j]+' '+ssi(jj),za[0],ca[0],za[1],ca[1],$
+            format='(A10,A13,F9.4,I3,F9.4,I3)' $
+            else printf,lun,masknames_nodup[i],slitnames_nodup[j]+' '+ssi(jj),za[0],ca[0],-1.0,0,$
+            format='(A10,A13,F9.4,I3,F9.4,I3)'
+            
+        endif; ct - same aperture, same slit
       endfor; jj
       print
     endfor; j
   endfor; i
-
+close,lun
+free_lun,lun
 
 cd,original_dir
 print,'program over'

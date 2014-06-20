@@ -168,7 +168,7 @@ pro bmep_mosdef_blind_save,savepath,maskname,filtername,slitname,$
     endelse
 
 if doSave eq 1 then begin
-  print,'WOULD HAVE SAVED: '+prefix+maskname+'.'+filtername+'.'+slitname+suffix+'.1d.fits'
+  print,'SAVED: '+prefix+maskname+'.'+filtername+'.'+slitname+suffix+'.1d.fits'
   header=bmep_blind_hdr('',extrainfo1,extrainfo2,extrainfo3,yexpect,width,isstar,objnum,min_width,/exten)
   writefits,thefilename,'',header
   header=bmep_blind_hdr(fopt,extrainfo1,extrainfo2,extrainfo3,yexpect,width,isstar,objnum,min_width,/image)
@@ -347,7 +347,7 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
       print,maskname,' ', filtername,' ', slitname,' ',1, yexpect, midpoint, yshift,min_width, width
             if min_width-0.001 gt width then stop
       
-    endif else print,'no object found in the slitlist file?!?!?!?'
+    endif else print,'no object found in the star file?!?!?!?'
     
     
     ;calculate info to add to hdr
