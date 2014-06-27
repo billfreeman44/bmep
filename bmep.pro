@@ -5284,8 +5284,10 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
                 serendip_ypos,serendip_zspec,format='A,A,A,A,X,X,X,F,X,F,X,X,X,X';,/silent
 ;        FORPRINT,sss(serendip_slitid[0:10])+' '+slitname
 
-        index=where(sss(serendip_slitid) eq sss(slitname) and sss(serendip_filters) eq sss(filtername) and $
-          sss(fix(serendip_objectid)) ne sss(slitname) ,ct)
+        index=where(sss(serendip_masks) eq sss(maskname) and $
+                    sss(serendip_slitid) eq sss(slitname) and $
+                    sss(serendip_filters) eq sss(filtername) and $
+                    sss(fix(serendip_objectid)) ne sss(slitname) ,ct)
         PRINT,'THERE ARE '+ssi(CT)+' MATCHES IN THE SERENDIP CAT'
         if ct ge 1 then begin
           for k=0,n_elements(index)-1 do begin
