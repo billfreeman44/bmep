@@ -405,7 +405,7 @@ end
 ;
 pro bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername,wavel,savepath,$
     revisevar=revisevar,extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=savetext,$
-    monitorfix=monitorfix,vacuum=vacuum
+    monitorfix=monitorfix,vacuum=vacuum,serendips=serendips
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   if ~keyword_set(extrainfo1) then message,'must have ex info 1'
@@ -414,6 +414,7 @@ pro bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername
   if ~keyword_set(savetext) then savetext=0
   if ~keyword_set(monitorfix) then monitorfix=0
   if ~keyword_set(vacuum) then vacuum=0
+  if ~keyword_set(serendips) then serendips=[]
   !except=2
   dimensions = GET_SCREEN_SIZE()
   monitor_width=dimensions[0]-10
@@ -453,7 +454,7 @@ pro bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername
     raw_slitname:slitname,extrainfo1:extrainfo1,extrainfo2:extrainfo2,extrainfo3:extrainfo3,$
     savetext:savetext,cont_mode:0,monitorfix:monitorfix,vacuum:vacuum,$
     stats_mode:0,n_bins:0,l_bins:[0,0,0,0,0,0,0,0,0,0,0],r_bins:[0,0,0,0,0,0,0,0,0,0,0],$
-    cmode_arr:[0,0,0,0,0,0,0,0,0,0,0],width_scale_factor:width_scale_factor}
+    cmode_arr:[0,0,0,0,0,0,0,0,0,0,0],width_scale_factor:width_scale_factor,serendips:serendips}
   im1.window.MOUSE_DOWN_HANDLER='bmep_MouseDown'
   im1.window.MOUSE_UP_HANDLER='bmep_MouseUp'
   im1.window.Keyboard_Handler='bmep_KeyboardHandler'
@@ -5232,7 +5233,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
             print,ct,' number of stars found for ',maskname,' ',filtername
             yshift=avg(yexpect_star[index] - yactual_star[index])
             minwidth=min(widthstar[index])
-          endif else print,'no matching stars found ',maskname,' ',filtername
+          endif else for ii=0,13 do print,'WARNING, DO THE STARS BEFORE DOING ANY OBJECTS'
         endelse ;if isstar
         if isstar eq 1 and choice eq n_elements(objects) then goto, no_do_image
         if sxpar(shdr,'SLIT') eq 1 then begin 
@@ -5272,8 +5273,48 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
         endif
       
       
-      
-      
+      ; add in info about serendips
+      serendips=[]
+      if file_test(savepath+'newmasks_slitobjs.dat') then begin
+        ;#Mask Filter SlitID ObjID slitx(") slity(")
+        ; slitx(pix) slity(pix) Hmag z_spec z_grism z_phot
+        ; slity_tweak(") catstatus
+        readcol,savepath+'newmasks_slitobjs.dat',$
+               serendip_masks,serendip_filters,serendip_slitid,serendip_objectid,$
+                serendip_ypos,serendip_zspec,format='A,A,A,A,X,X,X,F,X,F,X,X,X,X';,/silent
+;        FORPRINT,sss(serendip_slitid[0:10])+' '+slitname
+
+        index=where(sss(serendip_slitid) eq sss(slitname) and sss(serendip_filters) eq sss(filtername) and $
+          sss(fix(serendip_objectid)) ne sss(slitname) ,ct)
+        PRINT,'THERE ARE '+ssi(CT)+' MATCHES IN THE SERENDIP CAT'
+        if ct ge 1 then begin
+          for k=0,n_elements(index)-1 do begin
+
+            ;add in vertical lines for lines
+;            redshift_suspect=serendip_zspec[index[j]]
+;            if redshift_suspect GT 0 THEN BEGIN
+;              FOR k=0,n_elements(linenames)-1 do begin
+;                linewave=linewavels[k] * (1.0+redshift_suspect)
+;                if linewave gt min(wavel) and linewave lt max(wavel) then begin
+;                  index2=where(abs(wavel-linewave) eq min(abs(wavel-linewave)),ct)
+;                  if ct eq 1 then big_img[index2,ny-10:ny+10]=255
+;                  endif
+;                endfor;linenames
+;              endif;redshift suspect gt 0
+              
+            ;add horizontal lines
+;            for l=0,n_elements(big_img[*,0])-10,6 do $
+;            big_img[l:l+2,round(serendip_ypos[index[k]]+midpoint)>0]=255 ; dashed lines
+            for l=0,n_elements(big_img[*,0])-10,10 do $
+            big_img[l:l+7,round(serendip_ypos[index[k]]+midpoint)>0]=255 ; dashed lines
+            serendips=[serendips,round(serendip_ypos[index[k]]+midpoint)>0]
+            print,round(serendip_ypos[index[k]]+midpoint)+ny
+            print,ny
+;            big_img[0:250,0>round(serendip_ypos[index[k]]+midpoint)+ny<(2*ny-1)]=255
+            
+            endfor;serend objects
+          endif; ct ge 1
+        endif else print,'WARNING, NO SERENDIP FILE FOUND:'+savepath+'newmasks_slitobjs.dat' ;end add in serendips
       
       
       
@@ -5471,7 +5512,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
 ;        forprint,extrainfo1,extrainfo2,extrainfo3
       bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername,wavel,savepath,$
         revisevar=0,extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=0,$
-        vacuum=1,monitorfix=monitorfix
+        vacuum=1,monitorfix=monitorfix,serendips=serendips
       
 ;      cghistoplot,snrimg,xr=[0,15],binsize=0.2,ytitle='SIGNAL TO NOISE RATIO',TITLE=MASKNAME+FILTERNAME+SLITNAME
 ;      stop
@@ -5575,6 +5616,8 @@ FUNCTION bmep_MouseUp, oWin, x, y, iButton
   oplot,replicate(0.0,n_elements(state.data)),color=255.+255.*255.
   index=where(state.extrainfo1 eq 'YEXPECT',ct)
   if ct eq 1 then oplot,[float(state.extrainfo2[index]),float(state.extrainfo2[index])],minmax(state.ydata),color=255.+255.*255.
+  for i=0,n_elements(state.serendips)-1 do $
+     oplot,[state.serendips[i],state.serendips[i]],minmax(state.ydata)*0.3,color=255.
   
   
   
