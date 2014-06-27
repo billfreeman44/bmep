@@ -5160,7 +5160,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
       snrimg[index]=0.0
       
       snr2sigCut=snrimg
-      index=where(snrimg lt 2.0,ct)
+      index=where(snrimg lt 1.6,ct)
       if ct gt 0 then snr2sigCut[index]=0.0
 
       
@@ -5281,12 +5281,13 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
         ; slity_tweak(") catstatus
         readcol,savepath+'newmasks_slitobjs.dat',$
                serendip_masks,serendip_filters,serendip_slitid,serendip_objectid,$
-                serendip_ypos,serendip_zspec,format='A,A,A,A,X,X,X,F,X,F,X,X,X,X';,/silent
+                serendip_ypos,serendip_hmag,serendip_zspec,format='A,A,A,A,X,X,X,F,F,F,X,X,X,X';,/silent
 ;        FORPRINT,sss(serendip_slitid[0:10])+' '+slitname
 
         index=where(sss(serendip_masks) eq sss(maskname) and $
                     sss(serendip_slitid) eq sss(slitname) and $
                     sss(serendip_filters) eq sss(filtername) and $
+                    serendip_hmag lt 25.5 and $
                     sss(fix(serendip_objectid)) ne sss(slitname) ,ct)
         PRINT,'THERE ARE '+ssi(CT)+' MATCHES IN THE SERENDIP CAT'
         if ct ge 1 then begin
@@ -5307,11 +5308,9 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
             ;add horizontal lines
 ;            for l=0,n_elements(big_img[*,0])-10,6 do $
 ;            big_img[l:l+2,round(serendip_ypos[index[k]]+midpoint)>0]=255 ; dashed lines
-            for l=0,n_elements(big_img[*,0])-10,10 do $
+            for l=0,n_elements(big_img[*,0])-20,10 do $
             big_img[l:l+7,round(serendip_ypos[index[k]]+midpoint)>0]=255 ; dashed lines
             serendips=[serendips,round(serendip_ypos[index[k]]+midpoint)>0]
-            print,round(serendip_ypos[index[k]]+midpoint)+ny
-            print,ny
 ;            big_img[0:250,0>round(serendip_ypos[index[k]]+midpoint)+ny<(2*ny-1)]=255
             
             endfor;serend objects
