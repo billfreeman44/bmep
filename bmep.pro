@@ -414,7 +414,7 @@ pro bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername
   if ~keyword_set(savetext) then savetext=0
   if ~keyword_set(monitorfix) then monitorfix=0
   if ~keyword_set(vacuum) then vacuum=0
-  if ~keyword_set(serendips) then serendips=[]
+  if ~keyword_set(serendips) then serendips=[-1]
   !except=2
   dimensions = GET_SCREEN_SIZE()
   monitor_width=dimensions[0]-10
@@ -2689,7 +2689,7 @@ if key eq 'X' then begin
     forprint,indgen(n_elements(linenames)),' '+linenames,linewavels,(coeff[1]/linewavels)-1.0
     print,n_elements(linenames),'other'
     choice=-1
-    print,'enter choice'
+    print,'enter choice (or -1 to not save)'
     read,choice
     
     if choice ge 0 and choice le n_elements(linenames) then begin
@@ -5274,7 +5274,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
       
       
       ; add in info about serendips
-      serendips=[]
+      serendips=[-1]
       if file_test(savepath+'newmasks_slitobjs.dat') then begin
         ;#Mask Filter SlitID ObjID slitx(") slity(")
         ; slitx(pix) slity(pix) Hmag z_spec z_grism z_phot
@@ -5287,7 +5287,6 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
         index=where(sss(serendip_masks) eq sss(maskname) and $
                     sss(serendip_slitid) eq sss(slitname) and $
                     sss(serendip_filters) eq sss(filtername) and $
-                    serendip_hmag lt 25.5 and $
                     sss(fix(serendip_objectid)) ne sss(slitname) ,ct)
         PRINT,'THERE ARE '+ssi(CT)+' MATCHES IN THE SERENDIP CAT'
         if ct ge 1 then begin
@@ -5308,11 +5307,19 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
             ;add horizontal lines
 ;            for l=0,n_elements(big_img[*,0])-10,6 do $
 ;            big_img[l:l+2,round(serendip_ypos[index[k]]+midpoint)>0]=255 ; dashed lines
+            if serendip_hmag[index[k]] le 23.5 then $
             for l=0,n_elements(big_img[*,0])-20,10 do $
-            big_img[l:l+7,round(serendip_ypos[index[k]]+midpoint)>0]=255 ; dashed lines
-            serendips=[serendips,round(serendip_ypos[index[k]]+midpoint)>0]
-;            big_img[0:250,0>round(serendip_ypos[index[k]]+midpoint)+ny<(2*ny-1)]=255
-            
+            big_img[l:l+7,round(serendip_ypos[index[k]]+midpoint)>0]=255 $; dashed lines
+            else $; if serendip_hmag[index[k]] le 24.5 then $
+            for l=0,n_elements(big_img[*,0])-20,10 do $
+            big_img[l:l+5,round(serendip_ypos[index[k]]+midpoint)>0]=255 ;$;short dashes
+;              else begin 
+;                for l=0,250,10 do $
+;            big_img[l:l+5,round(serendip_ypos[index[k]]+midpoint)>0]=255
+;                for l=nx-250,n_elements(big_img[*,0])-20,10 do $
+;            big_img[l:l+5,round(serendip_ypos[index[k]]+midpoint)>0]=255
+;                ENDELSE
+            serendips=[serendips,round(serendip_ypos[index[k]]+midpoint)>0] 
             endfor;serend objects
           endif; ct ge 1
         endif else print,'WARNING, NO SERENDIP FILE FOUND:'+savepath+'newmasks_slitobjs.dat' ;end add in serendips
@@ -5618,7 +5625,7 @@ FUNCTION bmep_MouseUp, oWin, x, y, iButton
   index=where(state.extrainfo1 eq 'YEXPECT',ct)
   if ct eq 1 then oplot,[float(state.extrainfo2[index]),float(state.extrainfo2[index])],minmax(state.ydata),color=255.+255.*255.
   for i=0,n_elements(state.serendips)-1 do $
-     oplot,[state.serendips[i],state.serendips[i]],minmax(state.ydata)*0.3,color=255.
+     if state.serendips[i] ne -1 then oplot,[state.serendips[i],state.serendips[i]],minmax(state.ydata)*0.3,color=255.
   
   
   
