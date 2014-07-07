@@ -45,7 +45,7 @@ for i=0,n_elements(masknames_nodup)-1 do begin
   slitnames_small=slitnames[index]
   zroundarr_small=zroundarr[index]
   apnums_small=apnums[index]
-  slitnames_nodup=slitnames[rem_dup(slitnames_small)]
+  slitnames_nodup=slitnames_small[rem_dup(slitnames_small)]
   for j=0,n_elements(slitnames_nodup)-1 do begin ; loop through slits
     for jj=1,7 do begin ;loop through possible aperatures
       ;index is everything in this slit. and is the same aperture number.

@@ -5168,33 +5168,33 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
       botpercent=del
       toppercent=100.-del
       
-      kernel = GAUSSIAN_FUNCTION([500,5], WIDTH=15, MAXIMUM=255,/double)
-      kernel=kernel-avg(kernel)
-      kernel=[[0,-1,0],$
-              [-1,5,-1],$
-              [0,-1,0]]      
-      kernel=[[-1,-1,-1],$
-              [-1,8,-1],$
-              [-1,-1,-1]]     
-      kernel=findgen(11,11)
-      for ii=0,n_elements(kernel[*,0])-1 do $
-        for jj=0,n_elements(kernel[*,0])-1 do $
-        kernel[ii,jj]=(-1.0)*bmep_LoG(ii-n_elements(kernel[*,0])/2,jj-n_elements(kernel[*,0])/2,3) 
-;      kernel=[[ 0,-1,-1,-1, 0],$
-;              [-1, 3, 3, 3,-1],$
-;              [-1, 3, 5, 3,-1],$
-;              [-1, 3, 3, 3,-1],$
-;              [ 0,-1,-1,-1, 0]]      
-;      kernel=[[ 0,-1,-1,-1, 0],$
-;              [-1, 3, 5, 3,-1],$
-;              [-1, 5, 7, 5,-1],$
-;              [-1, 3, 5, 3,-1],$
-;              [ 0,-1,-1,-1, 0]]
-      kernel=kernel-avg(kernel)
-      
-;      print,kernel
-      conv_img=convol((sciimg),kernel,/edge_zero,/normalize)
-      for ii=0,n_elements(conv_img[*,0])-1 do conv_img[ii,*]=conv_img[ii,*]-aVG(conv_img[ii,*])
+;      kernel = GAUSSIAN_FUNCTION([500,5], WIDTH=15, MAXIMUM=255,/double)
+;      kernel=kernel-avg(kernel)
+;      kernel=[[0,-1,0],$
+;              [-1,5,-1],$
+;              [0,-1,0]]      
+;      kernel=[[-1,-1,-1],$
+;              [-1,8,-1],$
+;              [-1,-1,-1]]     
+;      kernel=findgen(11,11)
+;      for ii=0,n_elements(kernel[*,0])-1 do $
+;        for jj=0,n_elements(kernel[*,0])-1 do $
+;        kernel[ii,jj]=(-1.0)*bmep_LoG(ii-n_elements(kernel[*,0])/2,jj-n_elements(kernel[*,0])/2,3) 
+;;      kernel=[[ 0,-1,-1,-1, 0],$
+;;              [-1, 3, 3, 3,-1],$
+;;              [-1, 3, 5, 3,-1],$
+;;              [-1, 3, 3, 3,-1],$
+;;              [ 0,-1,-1,-1, 0]]      
+;;      kernel=[[ 0,-1,-1,-1, 0],$
+;;              [-1, 3, 5, 3,-1],$
+;;              [-1, 5, 7, 5,-1],$
+;;              [-1, 3, 5, 3,-1],$
+;;              [ 0,-1,-1,-1, 0]]
+;      kernel=kernel-avg(kernel)
+;      
+;;      print,kernel
+;      conv_img=convol((sciimg),kernel,/edge_zero,/normalize)
+;      for ii=0,n_elements(conv_img[*,0])-1 do conv_img[ii,*]=conv_img[ii,*]-aVG(conv_img[ii,*])
 
 ;      big_img=findgen(nx,(ny*4))
 ;      big_img[*,ny*0:ny*1-1]=bytscl(sciimg,top=255,/NAN,$
