@@ -5077,6 +5077,16 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
   ; user  choose filter.
   ;scratch that, don't choose the filter.
   filters_no_duplicates=filters[rem_dup(filters)]
+  index=where(filters_no_duplicates eq 'K',kin)
+  index=where(filters_no_duplicates eq 'J',jin)
+  index=where(filters_no_duplicates eq 'H',hin)
+  index=where(filters_no_duplicates eq 'Y',yin)
+  f=[]
+  if yin then f=[f,'Y']
+  if jin then f=[f,'J']
+  if hin then f=[f,'H']
+  if kin then f=[f,'K']
+  filters_no_duplicates=f
   filtername=filters_no_duplicates[0]
   
   ;remove everything except that filter from "database"
