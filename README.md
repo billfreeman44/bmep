@@ -1,4 +1,4 @@
 bmep
 ====
 
-bmep: Bill's Mosfire Extraction Program
+bmep: The name doesn't stand for anything.
