@@ -2689,7 +2689,7 @@ if key eq 'X' then begin
     
     
     
-    forprint,indgen(n_elements(linenames)),' '+linenames,linewavels,(coeff[1]/linewavels)-1.0,gauss_sigma[3]/linewavels
+    forprint,indgen(n_elements(linenames)),' '+linenames,linewavels,(coeff[1]/linewavels)-1.0
     print,n_elements(linenames),'other'
     choice=-1
     print,'enter choice (or -1 to not save)'
@@ -2714,6 +2714,7 @@ if key eq 'X' then begin
       redshifterr=gauss_sigma[1]/new_wavel
 
       print,'z=',redshift
+      print,'zerr=',redshifterr
       print,'line name=',new_name
 
       
