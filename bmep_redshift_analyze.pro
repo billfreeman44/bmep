@@ -52,10 +52,24 @@ for i=0,n_elements(masknames_nodup)-1 do begin
       index=where(slitnames_small eq slitnames_nodup[j] and apnums_small eq jj,ct)
       if ct gt 0 then begin
         official_redshifts=zroundarr_small[index[rem_dup(zroundarr_small[index])]]
+        official_redshifts=official_redshifts[bsort(official_redshifts)]
+        ;loop through and delete anything difference of one
+        remove_index=[]
+        for k=0,n_elements(official_redshifts)-2 do begin
+          if official_redshifts[k] EQ official_redshifts[k+1]-1 then remove_index=[remove_index,k]
+          endfor
+        if n_elements(remove_index) ne 0 then begin
+          print,'REMOVING CLOSE INDICES'
+          print,remove_index
+          print,official_redshifts
+          remove,remove_index,official_redshifts
+          print,official_redshifts
+          print
+          endif
         ca=[]
         za=[]
         for k=0,n_elements(official_redshifts)-1 do begin
-          ind=where(zroundarr_small[index] eq official_redshifts[k],ct)
+          ind=where(abs(zroundarr_small[index]-official_redshifts[k]) le 1,ct)
           print,masknames_nodup[i],slitnames_nodup[j]+' '+ssi(jj),avg(zarr_small[index[ind]]),ct, $
             format='(A10,A13,F8.4,I3)'
           ca=[ca,ct]

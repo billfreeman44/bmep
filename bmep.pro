@@ -1410,7 +1410,7 @@ function bmep_guess_redshift,state,wavel,fopt,fopterr,objnum,linename=linename,l
     print,'fit status (1 is good) ' ,status
     if status eq 1 then begin
       redshift=(coeff[1]/new_wavel)-1.0
-      redshifterr=abs(((coeff[1]+gauss_sigma[1])/new_wavel)-1.0-redshift)
+      redshifterr=gauss_sigma[1]/new_wavel
       
       if ~file_test(state.savepath+'00_redshift_catalog_bmep.txt') then $
       forprint,maskname+' ',filtername+' ',slitname+' ',sss(abs(objnum))+' ',redshift,redshifterr,' '+new_name,new_wavel,coeff[1],$
@@ -2640,6 +2640,7 @@ if key eq 'X' then begin
   
   
   plot,xfit,yfit
+  oploterr,xfit,yfit,yfiterr
   
   nterms=4
   pi =[{fixed:0, limited:[1,1], limits:[max(yfit)*0.6,max(yfit)*1.2]},$ ;peak value
@@ -2665,7 +2666,9 @@ if key eq 'X' then begin
     print,'width   : ',coeff[2],' pm ',gauss_sigma[2],' estimate was ',estimates[2]
     print,'linear  : ',coeff[3],' pm ',gauss_sigma[3],' estimate was ',estimates[3]
     ;print,'quad    : ',coeff[4],' pm ',gauss_sigma[4],' estimate was ',estimates[4]
-    
+    print,'mom1: ',total(xfit*yfit)/total(yfit)
+    print,'mom2: ',sqrt(abs(total(xfit*xfit*yfit)/total(yfit) - $
+        (total(xfit*yfit)/total(yfit))*(total(xfit*yfit)/total(yfit))))
     
     ;define line names
     linenames= ['HA6565','NII6585','OII_dbl','OIII5008','OIII4960','HB4863','SII_dbl','HG4342']
@@ -2686,7 +2689,7 @@ if key eq 'X' then begin
     
     
     
-    forprint,indgen(n_elements(linenames)),' '+linenames,linewavels,(coeff[1]/linewavels)-1.0
+    forprint,indgen(n_elements(linenames)),' '+linenames,linewavels,(coeff[1]/linewavels)-1.0,gauss_sigma[3]/linewavels
     print,n_elements(linenames),'other'
     choice=-1
     print,'enter choice (or -1 to not save)'
@@ -2708,7 +2711,7 @@ if key eq 'X' then begin
       redshift=(coeff[1]/new_wavel)-1.0
       ;redshifterr=redshift*(gauss_sigma[1]/new_wavel)
       ;                redshifterr=avg([,((coeff[1]-gauss_sigma[1])/new_wavel)-1.0])
-      redshifterr=abs(((coeff[1]+gauss_sigma[1])/new_wavel)-1.0-redshift)
+      redshifterr=gauss_sigma[1]/new_wavel
 
       print,'z=',redshift
       print,'line name=',new_name
@@ -5477,12 +5480,12 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
         ' Dither pattern',$
         ' Slit Number (Bottom slit is no 1) ',$
         ' Bar numbers (Bottom bar is no 1) ',$
-        ' Object Ra (Degrees)',$
+        ' Primary Object Ra (Degrees)',$
         $
-        ' Object Dec (Degrees)',$
+        ' Primary Object Dec (Degrees)',$
         ' Offset spectrum wrt center of slit [arscec]',$
-        ' Magnitude from MAGMA input files (H band)',$
-        ' Priority used in MAGMA   ',$
+        ' Primary Object Magnitude from MAGMA input files (H band)',$
+        ' Priority used in MAGMA  of Primary Object ',$
         ' Scaling factor from cts/s to erg/s/cm^2/Angstrom',$
         $
         ' Slit position angle ',$
