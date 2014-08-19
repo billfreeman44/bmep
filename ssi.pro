@@ -9,5 +9,5 @@
 ;
 ;==============================================================
 function ssi,number
-  return,strcompress(string(fix(number)),/remove_all)
+  return,strcompress(string(long(number)),/remove_all)
 end
