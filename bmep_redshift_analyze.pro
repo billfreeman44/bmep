@@ -42,6 +42,7 @@ masknames_nodup=masknames[rem_dup(masknames)]
 for i=0,n_elements(masknames_nodup)-1 do begin
   index=where(masknames eq masknames_nodup[i],ct)
   zarr_small=zarr[index]
+  zerrarr_small=zerrarr[index]
   slitnames_small=slitnames[index]
   zroundarr_small=zroundarr[index]
   apnums_small=apnums[index]
@@ -70,10 +71,13 @@ for i=0,n_elements(masknames_nodup)-1 do begin
         za=[]
         for k=0,n_elements(official_redshifts)-1 do begin
           ind=where(abs(zroundarr_small[index]-official_redshifts[k]) le 1,ct)
-          print,masknames_nodup[i],slitnames_nodup[j]+' '+ssi(jj),avg(zarr_small[index[ind]]),ct, $
+          weights = zerrarr_small[index[ind]]
+          weights[where(weights eq 0,/null)]=0.01
+          weights=1.0/weights
+          print,masknames_nodup[i],slitnames_nodup[j]+' '+ssi(jj),total(zarr_small[index[ind]]*weights)/total(weights),ct, $
             format='(A10,A13,F8.4,I3)'
           ca=[ca,ct]
-          za=[za,avg(zarr_small[index[ind]])]
+          za=[za,total(zarr_small[index[ind]]*weights)/total(weights)]
           endfor; k
           ind=reverse(bsort(ca))
           ca=ca[ind]

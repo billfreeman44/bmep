@@ -3111,8 +3111,8 @@ function bmep_make_hdr,data_make,extrainfo1,extrainfo2,extrainfo3,j,centerarr,wi
   MKHDR, header, data_make, exten=exten, image=image
   FOR jj=0,n_elements(extrainfo1) -1 do $
     if VALID_NUM(extrainfo2[jj]) then $
-    if float(extrainfo2[jj]) eq fix(extrainfo2[jj]) then $
-    sxaddpar, Header,extrainfo1[jj],fix(extrainfo2[jj]),extrainfo3[jj] else $
+    if float(extrainfo2[jj]) eq long(extrainfo2[jj]) then $
+    sxaddpar, Header,extrainfo1[jj],long(extrainfo2[jj]),extrainfo3[jj] else $
     sxaddpar, Header,extrainfo1[jj],float(extrainfo2[jj]),extrainfo3[jj] else $
     sxaddpar, Header,extrainfo1[jj],STRCOMPRESS(extrainfo2[jj], /REMOVE_ALL),extrainfo3[jj]
   ;add in all parameters for the fit.
