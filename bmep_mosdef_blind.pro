@@ -256,7 +256,9 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
       mask=sxpar(hdr,'MSKNM')
       filter=sxpar(hdr,'FILTNM')
       slit=sss(sxpar(hdr,'SLITNM'))
+      print,'slit from hdr ',slit
       if valid_num(slit) then slit=ssi(slit)
+      print,'slit after fix ',slit
       width=(sxpar(hdr,'WIDTH'))
       minw=sxpar(hdr,'MINW')
       ypos=sxpar(hdr,'YPOS')
