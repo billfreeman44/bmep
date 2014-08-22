@@ -5295,14 +5295,14 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
         ; slity_tweak(") catstatus
         readcol,savepath+'newmasks_slitobjs.dat',$
                serendip_masks,serendip_filters,serendip_slitid,serendip_objectid,$
-                serendip_ypos,serendip_hmag,serendip_zspec,format='A,A,A,A,X,X,X,F,F,F,X,X,X,X';,/silent
+                serendip_ypos,serendip_hmag,serendip_zspec,format='A,A,A,A,X,X,X,F,F,F,X,X,X,X',/silent
 ;        FORPRINT,sss(serendip_slitid[0:10])+' '+slitname
 
         index=where(sss(serendip_masks) eq sss(maskname) and $
                     sss(serendip_slitid) eq sss(slitname) and $
                     sss(serendip_filters) eq sss(filtername) and $
                     sss(fix(serendip_objectid)) ne sss(slitname) ,ct)
-        PRINT,'THERE ARE '+ssi(CT)+' MATCHES IN THE SERENDIP CAT'
+        PRINT,'there are '+ssi(CT)+' matches in the serendip catalog.'
         if ct ge 1 then begin
           for k=0,n_elements(index)-1 do begin
 
@@ -5529,8 +5529,14 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
         
         
         
-        
-        
+        ;maskname+'.'+filtername+'.'+slitname+'.2d.fits'
+      existing_file=file_search(savepath+maskname+'.'+filtername+'.'+slitname+'*')
+      for k=0,n_elements(existing_file)-1 do begin
+        print,existing_file[k],' - comment - ',sxpar(HEADFITS( existing_file[k],exten=1,/silent),'UCOMMENT')
+        print,existing_file[k],' - comment - ',sxpar(HEADFITS( existing_file[k],exten=1,/silent),'UCMEAN')
+        endfor
+      print
+      print
 ;        forprint,extrainfo1,extrainfo2,extrainfo3
       bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername,wavel,savepath,$
         revisevar=0,extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=0,$
