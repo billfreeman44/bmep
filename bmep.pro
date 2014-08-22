@@ -1,6 +1,4 @@
-;test comment extra edit
-;
-;version 1.00
+
 ;;git commit -a -m ''
 ;extract data multiple times using different widths to find the best SNR
 pro bmep_auto_width_calculator,j,centerarr,state,order,bkgndl,bkgndr,$
@@ -5530,10 +5528,12 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
         
         
         ;maskname+'.'+filtername+'.'+slitname+'.2d.fits'
-      existing_file=file_search(savepath+maskname+'.'+filtername+'.'+slitname+'*')
-      for k=0,n_elements(existing_file)-1 do begin
-        print,existing_file[k],' - comment - ',sxpar(HEADFITS( existing_file[k],exten=1,/silent),'UCOMMENT')
-        print,existing_file[k],' - comment - ',sxpar(HEADFITS( existing_file[k],exten=1,/silent),'UCMEAN')
+      existing_file=file_search(savepath+maskname+'.'+filtername+'.'+slitname+'*',count=count)
+      for k=0,count-1 do begin
+        uc=sxpar(HEADFITS( existing_file[k],exten=1,/silent),'UCOMMENT')
+        ucm=sxpar(HEADFITS( existing_file[k],exten=1,/silent),'UCMEAN')
+        if uc ne 'No Comment' then print,existing_file[k],' - UCOMMENT - ',uc
+        if ucm ne 'nothing unusual' then print,existing_file[k],' - UCMEAN - ',ucm
         endfor
       print
       print
