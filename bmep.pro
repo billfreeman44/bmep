@@ -1,5 +1,63 @@
-
+;++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+;+                                                              +
+;+                          BMEP                                +
+;+                                                              +
+;+               Written by William R. Freeman                  +   
+;+                                                              +
+;+             As part of the MOSDEF collaboration:             + 
+;+      http://astro.berkeley.edu/~mariska/MOSDEF/Team.html     +
+;+                                                              +
+;+                                                              +
+;+      Version 1.0: August 29 2014                             +
+;+                                                              +
+;+      Info:  https://github.com/billfreeman44/bmep            +
+;+             Freeman, William R., et al. in prep              +
+;+                                                              +
+;+      If you use BMEP in your publication, please cite        +
+;+      this paper!                                             +
+;+                                                              +
+;+      Contact: billfreeman44@yahoo.com                        +
+;+                                                              +
+;++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+;
+;
+;
+;
+;
+;
+;
+;Copyright (c) 2014 William R. Freeman
+;
+;Permission is hereby granted, free of charge, to any person obtaining a copy
+;of this software and associated documentation files (the "Software"), to deal
+;in the Software without restriction, including without limitation the rights
+;to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+;copies of the Software, and to permit persons to whom the Software is
+;furnished to do so, subject to the following conditions:
+;
+;The above copyright notice and this permission notice shall be included in
+;all copies or substantial portions of the Software.
+;
+;THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+;IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+;FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+;AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+;LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+;OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+;THE SOFTWARE.
+;
+;
+;
+;
+;
+;
+;
+;
+;
 ;;git commit -a -m ''
+;
+;subroutines listed alphabetically.
+;
 ;extract data multiple times using different widths to find the best SNR
 pro bmep_auto_width_calculator,j,centerarr,state,order,bkgndl,bkgndr,$
     printp,fitgaussp,plotp,slidep,pwindowsize,singlep,cosmic_sigma,$
@@ -5530,10 +5588,12 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
         ;maskname+'.'+filtername+'.'+slitname+'.2d.fits'
       existing_file=file_search(savepath+maskname+'.'+filtername+'.'+slitname+'*',count=count)
       for k=0,count-1 do begin
-        uc=sxpar(HEADFITS( existing_file[k],exten=1,/silent),'UCOMMENT')
-        ucm=sxpar(HEADFITS( existing_file[k],exten=1,/silent),'UCMEAN')
-        if uc ne 'No Comment' then print,existing_file[k],' - UCOMMENT - ',uc
-        if ucm ne 'nothing unusual' then print,existing_file[k],' - UCMEAN - ',ucm
+        uc=sxpar(HEADFITS( existing_file[k],exten=1,/silent),'UCOMMENT',COUNT=matches1)
+        ucm=sxpar(HEADFITS( existing_file[k],exten=1,/silent),'UCMEAN',COUNT=matches2)
+;        print,matches1,matches2
+;        print,uc,ucm
+        if matches1 gt 0 then if uc ne 'No Comment' then print,existing_file[k],' - UCOMMENT - ',uc
+        if matches2 gt 0 then if ucm ne 'nothing unusual' then print,existing_file[k],' - UCMEAN - ',ucm
         endfor
       print
       print
