@@ -1,22 +1,22 @@
 ;++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ;+                                                              +
-;+                          BMEP                                +
+;+                           BMEP                               +
 ;+                                                              +
 ;+               Written by William R. Freeman                  +   
 ;+                                                              +
-;+             As part of the MOSDEF collaboration:             + 
-;+      http://astro.berkeley.edu/~mariska/MOSDEF/Team.html     +
 ;+                                                              +
+;+     Version 1.1: September 9 2014                            +
 ;+                                                              +
-;+      Version 1.0: August 29 2014                             +
+;+     Info:  https://github.com/billfreeman44/bmep             +
+;+            Freeman, William R., et al. in prep               +
 ;+                                                              +
-;+      Info:  https://github.com/billfreeman44/bmep            +
-;+             Freeman, William R., et al. in prep              +
+;+     If you use BMEP in your publication, please cite         +
+;+     this paper!                                              +
 ;+                                                              +
-;+      If you use BMEP in your publication, please cite        +
-;+      this paper!                                             +
+;+     Contact: billfreeman44@yahoo.com                         +
 ;+                                                              +
-;+      Contact: billfreeman44@yahoo.com                        +
+;+     This software was written for the MOSDEF collaboration:  + 
+;+     http://pepper.astro.berkeley.edu/~mosdef/Home.html       +
 ;+                                                              +
 ;++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ;
@@ -1029,6 +1029,21 @@ pro bmep_extraction_subpixel,j,centerarr,state,order,widtharr,bkgndl,bkgndr,$
 end ; end of extraction
 
 
+
+
+
+
+
+pro bmep_finish
+bmep_mosdef_blind
+bmep_mosdef_getinfo
+bmep_redshift_analyze,/mosdef
+bmep_mosdef_check_zspec
+
+end
+
+
+
 ;
 ;fit the sky background to a polynomial.
 ;INPUTS:
@@ -1595,6 +1610,13 @@ FUNCTION bmep_KeyboardHandler, oWin, $
         'other issue: do not use for science',$
         'other issue: probably OK to use for science']
       
+      index=WHERE(state.extrainfo1 eq 'MSKNM',ct)
+      maskname=state.extrainfo2[index[0]]
+      index=WHERE(state.extrainfo1 eq 'FILTNM',ct)
+      filtername=state.extrainfo2[index[0]]
+      index=WHERE(state.extrainfo1 eq 'SLITNM',ct)
+      slitname=state.extrainfo2[index[0]]
+      
       
       index=where(state.extrainfo1 eq 'MINW',ct)
       if ct eq 1 then minw=double(state.extrainfo2[index[0]]) else minw=double(-1)
@@ -1827,6 +1849,8 @@ FUNCTION bmep_KeyboardHandler, oWin, $
                   0.0,ssi(k)
               endfor
               
+
+              
               index=where(fopterr ne 0)
               yplotdata=fopt[index]/fopterr[index]
               xplotdata=state.wavel[index]
@@ -1875,13 +1899,28 @@ FUNCTION bmep_KeyboardHandler, oWin, $
               if ct eq 1 and state.extrainfo2[index[0]] gt 0.0 then redshift_suspect=state.extrainfo2[index[0]]
               endelse
             endelse
-            
             if redshift_suspect GT 0 THEN BEGIN
               FOR k=0,n_elements(linenames)-1 do begin
-                oplot,[linewavels[k] * (1.0+redshift_suspect),linewavels[k] * (1.0+redshift_suspect)],minmax(yr),color=456789
+                oplot,[linewavels[k] * (1.0+redshift_suspect),linewavels[k] * (1.0+redshift_suspect)],minmax(yr),color=456789,linestyle=0
                 ;xyouts
                 endfor
               endif
+              
+              
+              
+;            index=where(state.extrainfo1 eq 'MSKNM',ct)
+;            maskname=state.extrainfo2[index[0]]
+;            index=where(state.extrainfo1 eq 'SLITNM',ct)
+;            slitname=state.extrainfo2[index[0]]
+;            ;look for linez
+;            readcol,state.savepath+'00_redshift_catalog_bmep.txt',v1,v2,v3,v4,v5,v6,v7,v8,v9,format='A,A,A,A,F,F,A,F,F',/silent
+;            index=where(sss(v1) eq sss(maskname) and sss(v3) eq sss(slitname) and sss(v4) eq ssi(abs(objnum)),ct)
+;              if ct ge 1 then begin
+;                FOR k=0,n_elements(linenames)-1 do $
+;                for kk=0,n_elements(index)-1 do $
+;                  oplot,[linewavels[k] * (1.0+v5[index[kk]]),linewavels[k] * (1.0+v5[index[kk]])],minmax(yr),color=999999999999,linestyle=(kk mod 5)
+;                endif
+
             
             
             
@@ -2149,6 +2188,34 @@ FUNCTION bmep_KeyboardHandler, oWin, $
         else findautowidth=0
       endif
       
+      ;display redshift info
+      if key eq 'b' then begin
+      if file_test(state.savepath+'00_redshift_catalog_bmep.txt') then begin
+          readcol,state.savepath+'00_redshift_catalog_bmep.txt',v1,v2,v3,v4,v5,v6,v7,v8,v9,format='A,A,A,A,F,F,A,F,F'
+          index=where(sss(v1) eq sss(maskname) and sss(v3) eq sss(slitname),ct)
+          if ct ge 1 then begin
+            print,"      maskname   filter   slit  ap_no   z     zerr    linename    restwave    obswave"
+            forprint,v1[index],v2[index],v3[index],v4[index],v5[index],v6[index],v7[index],v8[index],v9[index],$
+              format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
+            endif;ct
+          endif ;file found
+        endif ; key is b
+      
+      ;display redshift info
+      if key eq 'B' then begin
+        print,'deleting redshift info not working currently'
+;          if file_test(state.savepath+'00_redshift_catalog_bmep.txt') then begin
+;              readcol,state.savepath+'00_redshift_catalog_bmep.txt',v1,v2,v3,v4,v5,v6,v7,v8,v9,format='A,A,A,A,F,F,A,F,F'
+;              index=where(sss(v1) eq sss(maskname) and sss(v3) eq sss(slitname),ct)
+;              if ct ge 1 then begin
+;                print,"      maskname   filter   slit  ap_no   z     zerr    linename    restwave    obswave"
+;                forprint,v1[index],v2[index],v3[index],v4[index],v5[index],v6[index],v7[index],v8[index],v9[index],$
+;                  format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
+;                endif;ct
+;              endif ;file found
+        endif ; key is b
+      
+      
       ;edit cosmic sigma threshold.
       if key eq 'c' then begin
         print,'current cosmic sigma ',cosmic_sigma
@@ -2246,6 +2313,8 @@ if key eq '?' then begin
   print,'i - Toggle flag to not automatically extract later'
   print,'Z - Guess redshift'
   print,'X - Fit redshift.'
+  print,'b - display redshift info'
+  print,'B - delete redshift info (you are prompted)'
   print
   print,'---Adding or subtracting object options---'
   print,'m - Mark an object automatically (and do sky region)'
@@ -2279,6 +2348,8 @@ if key eq 'h' then begin
   print,'5 - set object num to 5'
   print,'a - Change the b_naverage parameter'
   print,'A - Toggle Auto-width calculator (needs statistics (r))'
+  print,'b - display redshift info'
+  print,'B - delete redshift info (you are prompted)'
   print,'c - Change sigma thresh (def = 4.0)'
   print,'d - Delete all extraction points'
   print,'e - Toggle extraction of the spectra'
@@ -2859,7 +2930,7 @@ if key eq 'X' then begin
         print,"      maskname   filter   slit  ap_no   z     zerr    linename    restwave    obswave"
         forprint,v1[index],v2[index],v3[index],v4[index],v5[index],v6[index],v7[index],v8[index],v9[index],$
           format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
-        endif else print,'WARNING, BUG WITH FINDING SIMILAR OBJECTS IN REDSHIFT LIST'
+        endif else print,'WARNING, BUG WITH FINDING SIMILAR OBJECTS IN REDSHIFT LIST. pls msg bill'
     endelse ; file found
   endif;choice
 endif ;status eq 1
