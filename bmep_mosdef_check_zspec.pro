@@ -23,6 +23,7 @@ zGRISMarr=[]
 zPHOTarr=[]
 mskarr=[]
 slitarr=[]
+z1arrct=[]
 for i=0,n_elements(masknames)-1 do begin
   if ap_nos[i] eq 1 then begin
     fn=file_search(masknames[i]+'.*.'+slitnames[i]+'*',count=count)
@@ -31,17 +32,18 @@ for i=0,n_elements(masknames)-1 do begin
       zspec=sxpar(hdr,'Z_SPEC')
       zgrism=sxpar(hdr,'Z_GRISM')
       zphot=sxpar(hdr,'Z_PHOT')
-      if zspec gt 0 then begin
+      if zspec gt 0  then begin ;ct1[i] gt 1
         zspecarr=[zspecarr,zspec]
         z1arr=[z1arr,z1[i]]
         mskarr=[mskarr,masknames[i]]
         slitarr=[slitarr,slitnames[i]]
+        z1arrct=[z1arrct,ct1[i]]
         endif
-      IF zgrism gt 0 then begin
+      IF zgrism gt 0 and ct1[i] gt 1 then begin
         zGRISMarr=[zGRISMarr,zgrism]
         z1grismarr=[z1grismarr,z1[i]]
         endif
-      IF zphot gt 0 then begin
+      IF zphot gt 0 and ct1[i] gt 1 then begin
         zPHOTarr=[zPHOTarr,zphot]
         z1photarr=[z1photarr,z1[i]]
         endif
@@ -89,18 +91,25 @@ index=where(abs(zPHOTarr-z1photarr) lt 0.4)
 ;cgplot,float(x),float(y),psym=10
 cghistoplot,zPHOTarr[index]-z1photarr[index],binsize=0.04
 
+;mariska like plot
+;phot triangles 5 
+;grism squares 6 
+;spec stars (asterisks) 2
+cgplot,zPHOTarr,z1photarr,psym=5,/ynozero,xr=[0.8,3.9],yr=[0.8,3.9],/xs,/ys,xtitle='z prior',ytitle='z mosdef'
+cgplot,zGRISMarr,z1grismarr,psym=6,/overplot
+cgplot,z1arr,zspecarr,psym=2,/overplot
+cgplot,[-100,100],[-100,100],/overplot
+al_legend,['zphot','zgrism','zspec'],$
+  psym=[5,6,2],position=[1.0,3.7]
 
-
-
-
-  print,'maskname slitname z_spec z_measured'
-  forprint,mskarr+' ',slitarr,zspecarr,z1arr
+  print,'maskname slitname z_spec z_measured n_lines'
+  forprint,mskarr+' ',slitarr,zspecarr,z1arr,z1arrct
   print
 index=where(abs(zspecarr-z1arr) gt zthresh,ct)
 if ct ge 1 then begin
   print,'Discrepant  spectra:'
-  print,'maskname slitname z_spec z_measured'
-  forprint,mskarr[index]+' ',slitarr[index],zspecarr[index],z1arr[index]
+  print,'maskname slitname z_spec z_measured n_lines'
+  forprint,mskarr[index]+' ',slitarr[index],zspecarr[index],z1arr[index],z1arrct[index]
   endif
 ps_end
 end

@@ -152,8 +152,9 @@ pro bmep_mosdef_getinfo,yposthresh=yposthresh,widththresh=widththresh
       (slitarr[i] eq slitarr[i-1]) and $
       (objnumarr[i] eq objnumarr[i-1]) and $
       (isstararr[i] ne 1) and $
-      (abs((yposarr[i]-yexpectarr[i]) - (yposarr[i-1]-yexpectarr[i-1])) gt yposthresh) $
+      abs((yposarr[i]-yexpectarr[i]) - (yposarr[i-1]-yexpectarr[i-1])) gt yposthresh $
       then suffix3=' BAD ' else suffix3=' OK '
+      
     if i gt 0 then prior_width=calc_width
     calc_width=( minwarr[i] gt widtharr[i] or minwarr[i] lt 0.0) ? 0.0: sqrt(((widtharr[i]/2.355)^2-(minwarr[I]/2.355)^2)>0.0)
     if (i gt 0) and $

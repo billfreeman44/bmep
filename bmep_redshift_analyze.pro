@@ -79,16 +79,15 @@ for i=0,n_elements(masknames_nodup)-1 do begin
           ca=[ca,ct]
           za=[za,total(zarr_small[index[ind]]*weights)/total(weights)]
           endfor; k
-          ind=reverse(bsort(ca))
-          ca=ca[ind]
-          za=za[ind]
-          forprint,ca,za
-          if n_elements(ca) gt 1 then $
+        ind=reverse(bsort(ca))
+        ca=ca[ind]
+        za=za[ind]
+        forprint,ca,za
+        if n_elements(ca) gt 1 then $
           printf,lun,masknames_nodup[i],slitnames_nodup[j]+' '+ssi(jj),za[0],ca[0],za[1],ca[1],$
             format='(A10,A13,F9.4,I3,F9.4,I3)' $
             else printf,lun,masknames_nodup[i],slitnames_nodup[j]+' '+ssi(jj),za[0],ca[0],-1.0,0,$
             format='(A10,A13,F9.4,I3,F9.4,I3)'
-            
         endif; ct - same aperture, same slit
       endfor; jj
       print
