@@ -6092,7 +6092,7 @@ pro bmep,path_to_output=path_to_output,botpercent=botpercent,toppercent=topperce
         
         ;snr image
         index=where(std_img ne 0)
-        snrimg=sciimg
+        snrimg=sciimg*0.0
         snrimg[index]=sciimg[index]/std_img[index]
         snr2sigCut=snrimg
         index=where(snr2sigCut lt snrthresh_min,/null)
