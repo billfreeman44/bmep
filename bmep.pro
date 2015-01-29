@@ -6127,7 +6127,7 @@ pro bmep,path_to_output=path_to_output,botpercent=botpercent,toppercent=topperce
         slitlistfile=getenv('BMEP_MOSFIRE_DRP_MASKS')+maskname+'_SlitList.txt'
         yexpect=-1
         if file_test(slitlistfile) then begin
-          readcol,slitlistfile,slitnamearr,priorityarr,offsetarr,format='X,X,X,X,X,X,X,X,X,I,F,F,X,X,X,X,X,X'
+          readcol,slitlistfile,slitnamearr,priorityarr,offsetarr,format='X,X,X,X,X,X,X,X,X,A,F,F,X,X,X,X,X,X'
           index=where(sss(slitnamearr) eq sss(slitname),ct)
           
           isstar=-1
