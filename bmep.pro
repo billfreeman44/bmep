@@ -6017,11 +6017,19 @@ pro bmep,path_to_output=path_to_output,botpercent=botpercent,toppercent=topperce
   ;get which slit to do.
   forprint,indgen(n_elements(slitnames)),replicate('. ',n_elements(slitnames)),slitnames
   print,n_elements(slitnames),' many files'
+  print,n_elements(slitnames)+1,' all stars'
   print,'which slit?'
   choice=0
   read,'Enter number here > ',choice
   if choice lt 0 then goto,theend
-  if choice ge n_elements(slitnames)+1 then goto,theend
+  if choice ge n_elements(slitnames)+2 then goto,theend
+  
+  
+  
+  
+  
+  
+  
   if choice eq n_elements(slitnames) then begin
     choicearr=indgen(n_elements(slitnames))
     minobjnum=0
@@ -6032,7 +6040,22 @@ pro bmep,path_to_output=path_to_output,botpercent=botpercent,toppercent=topperce
     read,maxobjnum
     index=where(choicearr ge minobjnum and choicearr le maxobjnum,/null)
     choicearr=choicearr[index]
-    endif else choicearr=where(slitnames eq slitnames[choice])
+    endif else if choice eq n_elements(slitnames)+1 then begin 
+      ;FIND ALL THE STARS!!!
+      priority_arr=[]
+      for i=0,n_elements(objects)-1 do begin
+        hdr=headfits(maskname+'.'+filtername+'.'+objects[i]+'.2D.fits',exten=1)
+        priority_arr=[priority_arr,sxpar(hdr,'PRIORITY')]
+        endfor
+      if choice eq n_elements(slitnames)+1 then begin
+        choicearr=where(abs(priority_arr) eq 1.0,ct)
+        print,slitnames[choicearr],' are stars'
+      endif ; chose to do all stars.
+      
+      
+      
+      
+      endif else choicearr=where(slitnames eq slitnames[choice])
   
   for i=0,n_elements(choicearr)-1 do begin
     for j=0,n_elements(filternames)-1 do begin
@@ -6123,28 +6146,47 @@ pro bmep,path_to_output=path_to_output,botpercent=botpercent,toppercent=topperce
         endif
         
         
-        ;find yexpect
-        slitlistfile=getenv('BMEP_MOSFIRE_DRP_MASKS')+maskname+'_SlitList.txt'
-        yexpect=-1
-        if file_test(slitlistfile) then begin
-          readcol,slitlistfile,slitnamearr,priorityarr,offsetarr,format='X,X,X,X,X,X,X,X,X,A,F,F,X,X,X,X,X,X'
-          index=where(sss(slitnamearr) eq sss(slitname),ct)
-          
-          isstar=-1
-          minwidth=-1
-          if ct eq 1 then begin
-            pixscale=0.1799
-            midpoint=ny/2
-            yexpect=midpoint+offsetarr[index[0]]/pixscale
-            PRINT,'yexpect:',yexpect
-            ;draw white line
-            big_img[*,yexpect]=255
-          endif else print,'no object found in the slitlist file?!?!?!?'
-        endif else print,'no slitlist found for this mask: ',slitlistfile
+                
+  ;find yexpect
+  slitlistfile=getenv('BMEP_MOSFIRE_DRP_MASKS')+maskname+'_SlitList.txt'
+  yexpect=-1
+  isstar=0
+  minwidth=-1
+  yshift=0.0
+  if file_test(slitlistfile) then begin
+    readcol,slitlistfile,slitnamearr,priorityarr,offsetarr,format='X,X,X,X,X,X,X,X,X,A,F,F,X,X,X,X,X,X'
+    index=where(sss(slitnamearr) eq sss(slitname),ct)
+    if ct eq 1 then begin
+      pixscale=0.1799
+      midpoint=ny/2
+      yexpect=midpoint+offsetarr[index[0]]/pixscale
+      ;check if object is a star, If it isn't shift by amount that star is offset by
+      if abs(priorityarr[index[0]]) eq 1 then isstar=1 else begin
+        isstar=0
+        readcol,savepath+'00_starinfo.txt',maskstar,$
+          filtstar,objstar,yexpect_star,yactual_star,widthstar,sigmastar,/silent,format='A,A,A,F,F,F,F'
+        index=where(maskstar eq maskname and filtstar eq filtername,ct)
+        if ct ne 0 then begin
+          print,ct,' number of stars found for ',maskname,' ',filtername
+          yshift=avg(yexpect_star[index] - yactual_star[index])
+          minwidth=min(widthstar[index])
+        endif else print,'WARNING, no stars found in 00_starinfo.txt.  If you have a star on your mask, please extract that first.'
+      endelse ;if isstar
+      PRINT,'yexpect:',yexpect
+      print,'slitname, yexpect, midpoint, yshift, minwidth'
+      print,slitname, yexpect, midpoint, yshift, minwidth
+      yexpect=yexpect-yshift
+      PRINT,'new yexpect:',yexpect
         
-        ;set min/max vals for the image display
-        highval=max(big_img)
-        lowval=min(big_img)
+
+      ;draw white line
+      if yexpect lt ny-1 and yexpect ge 0 then big_img[*,yexpect]=255
+    endif else print,'no object found in the slitlist file?!?!?!?'
+  endif else print,'WARNING!! No slitlist found for this mask: ',slitlistfile
+  
+  ;set min/max vals for the image display
+  highval=max(big_img)
+  lowval=min(big_img)
         
         
         extrainfo1=[$
@@ -6153,6 +6195,9 @@ pro bmep,path_to_output=path_to_output,botpercent=botpercent,toppercent=topperce
           'CRPIX1',$
           'CTYPE1',$
           'YEXPECT',$
+          $
+          'MINW', $
+          'ISSTAR', $
           'MSKNM' ,$
           'FILTNM' ,$
           'SLITNM' ,$
@@ -6165,6 +6210,9 @@ pro bmep,path_to_output=path_to_output,botpercent=botpercent,toppercent=topperce
           string(refpix),$
           'LINEAR',$
           ssi(yexpect),$
+          $
+          ssf(MINWIDTH), $
+          ssi(ISSTAR), $
           maskname,$
           filtername,$
           sss(slitname) ,$
@@ -6178,6 +6226,9 @@ pro bmep,path_to_output=path_to_output,botpercent=botpercent,toppercent=topperce
           ' ',$
           ' ',$
           ' expected y value of primary obj',$
+          $
+          ' The minimum width to extract, from the star', $
+          ' Flag for if this is a star', $
           ' The mask name', $
           ' The filter name', $
           ' The slit name' , $
