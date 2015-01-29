@@ -1397,29 +1397,32 @@ end
 ;and for lris
 ;  cutout_slitname.fits
 ;and program will extract only the slitname
-function bmep_get_slitname,filename,maskname,ivar=ivar,eps=eps,lris=lris,idlreduc=idlreduc,gzending=gzending
+function bmep_get_slitname,filename,maskname,ivar=ivar,eps=eps,lris=lris,idlreduc=idlreduc
   postlength=0
   if keyword_set(lris) then begin
     start=strlen('cutout_')
     postlength=strlen(filename)-start-5 ;  5 for the .fits
     return,strcompress((strmid(filename,start,postlength)),/remove_all)
   endif ;lris data...
+  
   if keyword_set(ivar) then begin
-    postlength=strlen(filename)-strlen('_ivar.fits.gz') - (strlen(maskname)+3)
-    if ~keyword_set(gzending) then postlength=strlen(filename)-strlen('_ivar.fits') - (strlen(maskname)+3)
+    postlength=strlen(filename)-strlen('_ivar.fits') - (strlen(maskname)+3)
     return,strcompress((strmid(filename,strlen(maskname)+3,postlength)),/remove_all)
   endif
+  
   if keyword_set(eps) then begin
-    postlength=strlen(filename)-strlen('_eps.fits.gz') - (strlen(maskname)+3)
-    if ~keyword_set(gzending) then postlength=strlen(filename)-strlen('_eps.fits') - (strlen(maskname)+3)
+    postlength=strlen(filename)-strlen('_eps.fits') - (strlen(maskname)+3)
     return,strcompress((strmid(filename,strlen(maskname)+3,postlength)),/remove_all)
   endif
+  
   if keyword_set(idlreduc) then begin
     postlength=strlen(filename)-strlen('.2d.fits') -strlen('co2_03.')
     return,strcompress((strmid(filename,strlen('co2_03.'),postlength)),/remove_all)
   endif
   return,'NO_SLITNAME_FOUND'
 end
+
+
 
 
 
