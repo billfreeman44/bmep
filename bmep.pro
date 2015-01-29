@@ -6121,14 +6121,14 @@ pro bmep,path_to_output=path_to_output,botpercent=botpercent,toppercent=topperce
           big_img=bytscl(sciimg,top=255,/NAN,$
             min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))
         endif
-
+        
         
         ;find yexpect
         slitlistfile=getenv('BMEP_MOSFIRE_DRP_MASKS')+maskname+'_SlitList.txt'
         yexpect=-1
         if file_test(slitlistfile) then begin
           readcol,slitlistfile,slitnamearr,priorityarr,offsetarr,format='X,X,X,X,X,X,X,X,X,I,F,F,X,X,X,X,X,X'
-          index=where(long(slitnamearr) eq long(slitname),ct)
+          index=where(sss(slitnamearr) eq sss(slitname),ct)
           
           isstar=-1
           minwidth=-1
