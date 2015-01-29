@@ -5913,10 +5913,14 @@ end
 ; 
 ; added a 'ivarending' keyword because the DRP seemed to stop 
 ; using the IVAR and is now using std or something
+; 
+; removed the options about ivarending and gzending because I hope the people
+; doing the DRP stuff have finally settled on these things.
 ;
 ;test
 ;
-pro bmep,path_to_output=path_to_output
+pro bmep,path_to_output=path_to_output,botpercent=botpercent,toppercent=toppercent,$
+  snrthresh_max=snrthresh_max,snrthresh_min=snrthresh_min
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   ;files should be in BMEP_MOSFIRE_DRP_2D/maskname/date/band/
@@ -5927,6 +5931,13 @@ pro bmep,path_to_output=path_to_output
   ;setup things
   !except=2
   astrolib
+  
+  ;default parameters
+  ;mess with these to change how an image is viewed. (scaling)
+  if ~keyword_set(botpercent) then botpercent=10.0
+  if ~keyword_set(toppercent) then toppercent=90.0
+  if ~keyword_set(snrthresh_max) then snrthresh_max=3.0
+  if ~keyword_set(snrthresh_min) then snrthresh_min=2.5
   
   ;clear away all windows!!
   close,/all
@@ -5944,7 +5955,21 @@ pro bmep,path_to_output=path_to_output
   print,'the output 2D path is',path_to_output
   
   cd,path_to_output,current=original_dir
-
+  
+  ;make 1d_extracted folder or decide where to put output if BMEP_MOSFIRE_DRP_1D is specified
+  savepath=getenv('BMEP_MOSFIRE_DRP_1D')
+  if savepath eq '' then begin
+    savepath=path_to_output+'1d_extracted/'
+    if ~bmep_DIR_EXIST(savepath) then file_mkdir,'1d_extracted'
+    endif 
+  
+    
+  ;create a 00_starinfo.txt if not exist
+  if ~file_test(savepath+'00_starinfo.txt') then begin
+    forprint,textout=savepath+'00_starinfo.txt',['maskname '],$
+      ['filtername '],['objname '],[99.99],[99.99],[99.99],[99.99],/nocomment
+  endif  
+  
   ;find folders of masks..
   filenames = file_search('',/test_directory)
   forprint,indgen(n_elements(filenames)),replicate(' ',n_elements(filenames)),filenames
@@ -5952,7 +5977,6 @@ pro bmep,path_to_output=path_to_output
   read,choice
   if choice lt 0 then goto,theend
   if choice ge n_elements(filenames) then goto,theend
-  
   
   ;assume foldername is same as the mask name
   maskname=filenames[choice]
@@ -5972,18 +5996,7 @@ pro bmep,path_to_output=path_to_output
   print,'date: ',datename
   cd,datename
   
-  ;make 1d_extracted folder or decide where to put output if BMEP_MOSFIRE_DRP_1D is specified
-  x=getenv('BMEP_MOSFIRE_DRP_1D')
-  if x ne '' then savepath=x else begin
-    savepath=path_to_output+maskname+'/'+datename+'/1d_extracted/'
-    if ~bmep_DIR_EXIST(savepath) then file_mkdir,'1d_extracted'
-    endelse
-    
-  ;create a 00_starinfo.txt if not exist
-  if ~file_test(savepath+'00_starinfo.txt') then begin
-    forprint,textout=savepath+'00_starinfo.txt',['maskname '],$
-      ['filtername '],['objname '],[99.99],[99.99],[99.99],[99.99],/nocomment
-  endif  
+
   
   ;find what filters someone looked at
   filternames = file_search('',/test_directory)
@@ -5991,28 +6004,22 @@ pro bmep,path_to_output=path_to_output
   filternames=filternames[index]
   print,'filters found: ',filternames
   
-  
   ;check if fits files exist and create filenames array
   cd,filternames[0]
   filenames = file_search(maskname+'_*eps.fits')
   if n_elements(filenames) eq 0 then message,'no fits files found... '
-  
+
   ;get the names of the slits
   slitnames=[]
   for i=0,n_elements(filenames)-1 do $
-    slitnames=[slitnames,bmep_get_slitname(filenames[i],maskname,/eps,gzending=0)]
+    slitnames=[slitnames,bmep_get_slitname(filenames[i],maskname,/eps)]
 
-
-  
-  
   ;get which slit to do.
   forprint,indgen(n_elements(slitnames)),replicate('. ',n_elements(slitnames)),slitnames
   print,n_elements(slitnames),' many files'
   print,'which slit?'
-  print,'The blank slit is the full 2d image... dont choose this one'
-  print
   choice=0
-  read,choice
+  read,'Enter number here > ',choice
   if choice lt 0 then goto,theend
   if choice ge n_elements(slitnames)+1 then goto,theend
   if choice eq n_elements(slitnames) then begin
@@ -6048,17 +6055,20 @@ pro bmep,path_to_output=path_to_output
         
         ny=n_elements(sciimg[0,*])
         nx=n_elements(sciimg[*,0])
+        
+        ;clean images of nan or inf values
+        bmep_clean_imgs,sciimg,std_img
 
         ;calculate variance image
         index=where(std_img ne 0.0,ct)
         var_img=replicate(0.0,nx,ny)
         var_img[index]=std_img[index]*std_img[index]
         
-        ;clean variance image of nan or inf values
-        ind=where(finite(var_img) eq 0,/null)
-        var_img[ind]=0.0
-        ind=where(finite(sciimg) eq 0,/null)
-        sciimg[ind]=0.0
+;        ;clean variance image of nan or inf values
+;        ind=where(finite(var_img) eq 0,/null)
+;        var_img[ind]=0.0
+;        ind=where(finite(sciimg) eq 0,/null)
+;        sciimg[ind]=0.0
         
         ;FOR LONGSLIT CORRECTION TO MAKE THEM NOT HUGE IMAGES
   ;      sciimg=sciimg[*,977:1095]
@@ -6070,7 +6080,6 @@ pro bmep,path_to_output=path_to_output
         ;calculate wavel. CTYPE1, CRVAL1, and CDELT1
         refpix = sxpar(shdr,'CRPIX1')
         lam0   = sxpar(shdr,'CRVAL1')
-  ;      print,'starting wavelength ', lam0
         delta  = sxpar(shdr,'CDELT1')
         if delta lt 1.1 then delta  = sxpar(shdr,'CD1_1')
         wavel=lam0 + (findgen(n_elements(sciimg[*,0]))+refpix-1.0) * delta
@@ -6086,21 +6095,20 @@ pro bmep,path_to_output=path_to_output
         snrimg=sciimg
         snrimg[index]=sciimg[index]/std_img[index]
         snr2sigCut=snrimg
-        index=where(snr2sigCut lt 2.0,/null)
+        index=where(snr2sigCut lt snrthresh_min,/null)
         snr2sigCut[index]=0.0
-        index=where(snr2sigCut gt 3.0,/null)
+        index=where(snr2sigCut gt snrthresh_max,/null)
         snr2sigCut[index]=3.0
         
-        ;mess with these to change how an image is viewed. (scaling)
-        botpercent=10.0
-        toppercent=90.0
-        
-        big_img=findgen(nx,(ny*4))
+;        stop
+        big_img=findgen(nx,(ny*2))
         big_img[*,ny*0:ny*1-1]=bytscl(sciimg,top=255,/NAN,$
-          min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))   ;science img
+          min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))   ;science img 
         big_img[*,ny*1:ny*2-1]=bytscl(snr2sigCut,top=255,/NAN,$
-          min=2.0,max=3.0)   ;snr img
-        
+          min=2.0,max=3.0)   ;snr img (don't change the 2 and 3, its handled above)
+        print,'top science cut is',bmep_percent_cut(sciimg,toppercent)
+        print,'bot science cut is',bmep_percent_cut(sciimg,botpercent)
+        print
 ;        big_img[*,ny*1:ny*2-1]=bytscl(var_img,top=255,/NAN,$
 ;          min=bmep_percent_cut(var_img,botpercent),max=bmep_percent_cut(var_img,toppercent))  ;var img
 ;        big_img[*,ny*2:ny*3-1]=bytscl(snrimg,top=255,/NAN,$
@@ -6109,14 +6117,14 @@ pro bmep,path_to_output=path_to_output
 ;          min=2.0,max=3.0)   ;snr img
           
         ;resize big_img if really big in y direction...
-        if ny*4 gt 1000 then begin
+        if ny*2 gt 1000 then begin
           big_img=bytscl(sciimg,top=255,/NAN,$
             min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))
         endif
+
         
         ;find yexpect
-        slitlistfile=getenv('BMEP_MOSFIRE_DRP_MASKS')+$
-          maskname+'/'+maskname+'_SlitList.txt'
+        slitlistfile=getenv('BMEP_MOSFIRE_DRP_MASKS')+maskname+'_SlitList.txt'
         yexpect=-1
         if file_test(slitlistfile) then begin
           readcol,slitlistfile,slitnamearr,priorityarr,offsetarr,format='X,X,X,X,X,X,X,X,X,I,F,F,X,X,X,X,X,X'
@@ -6138,7 +6146,6 @@ pro bmep,path_to_output=path_to_output
         highval=max(big_img)
         lowval=min(big_img)
         
-        ;stop
         
         extrainfo1=[$
           'CRVAL1',$
