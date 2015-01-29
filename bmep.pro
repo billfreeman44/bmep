@@ -16,8 +16,8 @@
 ;+     Contact: billfreeman44@yahoo.com                         +
 ;+                                                              +
 ;+     This software was written as part                        +
-;      of the MOSDEF collaboration:                             + 
-;+     http://pepper.astro.berkeley.edu/~mosdef/Home.html       +
+;+     of the MOSDEF collaboration:                             + 
+;+     http://mosdef.astro.berkeley.edu/Home.html               +
 ;+                                                              +
 ;+     Much thanks to Alice Shapley for helping me              +
 ;+     iron out many of the issues and greatly                  +
@@ -197,48 +197,48 @@ pro bmep_auto_width_calculator,j,centerarr,state,order,bkgndl,bkgndr,$
   cgplot,sigmaarr,avgoptarr,title='flux vs width',/ynozero,xtitle='width (sigma)'
   cgplot,sigmaarr,avgoptarr_old,/overplot,linestyle=2
   
-  cgplot,sigmaarr,snroptarr,psym=-6,$
-    title='SNR vs width',xtitle=' total width (sigma)',$
-    ytitle='square=optimal, diamond=boxcar',$
-    /ynozero,yr=[minmax([snroptarr,snrboxarr])]
-  cgplot,sigmaarr,snrboxarr,psym=-4,/overplot
-  cgplot,[widtharr[j],widtharr[j]]/gwidth[j],[-1000,10000],/overplot
-  cgtext,0.13,1.0,ssi(leftstatspos),/normal
-  cgtext,0.13,0.95,ssi(rightstatspos),/normal
-  
-  cgplot,sigmaarr,avgoptarr,psym=-6,$
-    title='average flux vs width',xtitle=' total width (sigma)',$
-    ytitle='square=optimal, diamond=boxcar',$
-    /ynozero,yr=[minmax([avgoptarr,avgboxarr])]
-  cgplot,sigmaarr,avgboxarr,psym=-4,/overplot
-  cgplot,[widtharr[j],widtharr[j]]/gwidth[j],[-1000,10000],/overplot
-  
-  
-  if gwidth[j] gt 0 then sigmaarr=sigmaarr*gwidth[j]
-  
-  
-    cgplot,sigmaarr,snroptarr,psym=-6,$
-    title='SNR vs width',xtitle=' half width (pixels)',$
-    ytitle='square=optimal, diamond=boxcar',$
-    /ynozero,yr=[minmax([snroptarr,snrboxarr])]
-  cgplot,sigmaarr,snrboxarr,psym=-4,/overplot
-  cgplot,[widtharr[j],widtharr[j]],[-1000,10000],/overplot
-  cgtext,0.13,1.0,ssi(leftstatspos),/normal
-  cgtext,0.13,0.95,ssi(rightstatspos),/normal
-  
-  cgplot,sigmaarr,avgoptarr,psym=-6,$
-    title='average flux vs width',xtitle=' half width (pixels)',$
-    ytitle='square=optimal, diamond=boxcar',$
-    /ynozero,yr=[minmax([avgoptarr,avgboxarr])]
-  cgplot,sigmaarr,avgboxarr,psym=-4,/overplot
-  cgplot,[widtharr[j],widtharr[j]],[-1000,10000],/overplot
-  
-  if gwidth[j] gt 0 then sigmaarr=sigmaarr/gwidth[j]
-  cgplot,sigmaarr,snroptarr,psym=-6,$
-    title='SNR vs width',xtitle=' total width (sigma)',$
-    ytitle='optimal snr',$
-    /ynozero
-  cgplot,[widtharr[j],widtharr[j]]/gwidth[j],[-1000,10000],/overplot
+;  cgplot,sigmaarr,snroptarr,psym=-6,$
+;    title='SNR vs width',xtitle=' total width (sigma)',$
+;    ytitle='square=optimal, diamond=boxcar',$
+;    /ynozero,yr=[minmax([snroptarr,snrboxarr])]
+;  cgplot,sigmaarr,snrboxarr,psym=-4,/overplot
+;  cgplot,[widtharr[j],widtharr[j]]/gwidth[j],[-1000,10000],/overplot
+;  cgtext,0.13,1.0,ssi(leftstatspos),/normal
+;  cgtext,0.13,0.95,ssi(rightstatspos),/normal
+;  
+;  cgplot,sigmaarr,avgoptarr,psym=-6,$
+;    title='average flux vs width',xtitle=' total width (sigma)',$
+;    ytitle='square=optimal, diamond=boxcar',$
+;    /ynozero,yr=[minmax([avgoptarr,avgboxarr])]
+;  cgplot,sigmaarr,avgboxarr,psym=-4,/overplot
+;  cgplot,[widtharr[j],widtharr[j]]/gwidth[j],[-1000,10000],/overplot
+;  
+;  
+;  if gwidth[j] gt 0 then sigmaarr=sigmaarr*gwidth[j]
+;  
+;  
+;    cgplot,sigmaarr,snroptarr,psym=-6,$
+;    title='SNR vs width',xtitle=' half width (pixels)',$
+;    ytitle='square=optimal, diamond=boxcar',$
+;    /ynozero,yr=[minmax([snroptarr,snrboxarr])]
+;  cgplot,sigmaarr,snrboxarr,psym=-4,/overplot
+;  cgplot,[widtharr[j],widtharr[j]],[-1000,10000],/overplot
+;  cgtext,0.13,1.0,ssi(leftstatspos),/normal
+;  cgtext,0.13,0.95,ssi(rightstatspos),/normal
+;  
+;  cgplot,sigmaarr,avgoptarr,psym=-6,$
+;    title='average flux vs width',xtitle=' half width (pixels)',$
+;    ytitle='square=optimal, diamond=boxcar',$
+;    /ynozero,yr=[minmax([avgoptarr,avgboxarr])]
+;  cgplot,sigmaarr,avgboxarr,psym=-4,/overplot
+;  cgplot,[widtharr[j],widtharr[j]],[-1000,10000],/overplot
+;  
+;  if gwidth[j] gt 0 then sigmaarr=sigmaarr/gwidth[j]
+;  cgplot,sigmaarr,snroptarr,psym=-6,$
+;    title='SNR vs width',xtitle=' total width (sigma)',$
+;    ytitle='optimal snr',$
+;    /ynozero
+;  cgplot,[widtharr[j],widtharr[j]]/gwidth[j],[-1000,10000],/overplot
   
   ps_end
 
@@ -1421,6 +1421,18 @@ function bmep_get_slitname,filename,maskname,ivar=ivar,eps=eps,lris=lris,idlredu
   return,'NO_SLITNAME_FOUND'
 end
 
+
+pro bmep_get_linelist,vacuum
+
+
+
+linenames= ['HA6565','NII6585','OII_dbl','OIII5008','OIII4960','HB4863','SII_dbl','HG4342']
+if vacuum eq 1 then $
+  linewavels=[6564.614,6585.27,3728.48,5008.239,4960.295,4862.721,6718.29,4339.00]$;vacuum
+  else $
+    linewavels=[6562.801,6583.45,3727.28,5006.843,4958.911,4861.363,6716.44,4341.00];air
+
+end
 
 
 function bmep_guess_redshift,state,wavel,fopt,fopterr,objnum,linename=linename,linecol=linecol
@@ -5223,7 +5235,6 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
       
       ;draw white line
       if yexpect lt ny-1 and yexpect ge 0 then big_img[*,yexpect]=255
-      
       
       ;plot verticl lines where should be ha... etc 
       ;define line names
