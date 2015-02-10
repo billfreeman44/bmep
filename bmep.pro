@@ -102,7 +102,7 @@ pro bmep_auto_width_calculator,j,centerarr,state,order,bkgndl,bkgndr,$
   
 
   ;loop throught widths to see which is best SNR
-  for test_width=1.5,4.0,0.075 do begin
+  for test_width=1.5,5.0,0.075 do begin
     test_width_arr=replicate(test_width,n_elements(widtharr))
     
     ;extract new profile
@@ -186,16 +186,31 @@ pro bmep_auto_width_calculator,j,centerarr,state,order,bkgndl,bkgndr,$
   if ct eq 0 then message,'ERROR: SLITNAME (SLITNM) IS NOT DEFINED IN EXTRAINFO1'
   fitsfilenm=fitsfilenm+extrainfo2[index]+suffix
   fitsfilenm=fitsfilenm[0]
-  print,'saving ',state.savepath+'profile_'+fitsfilenm+'.ps'
-  ps_start,state.savepath+'profile_'+fitsfilenm+'.ps'
+  print,'saving ',state.savepath+'profile_'+fitsfilenm+'.eps'
+  ps_start,state.savepath+'profile_'+fitsfilenm+'_plot1.eps',xsize=7,ysize=7,/encapsulated
   pmsave=!p.multi
-  !p.multi=[0,1,1]
+  !p.multi=[0,1,2]
   
   
-  cgplot,sigmaarr,snroptarr,title='snr vs width',/ynozero,xtitle='width (sigma)'
+  cgplot,sigmaarr,snroptarr,ytitle='Average Signal to Noise',/ynozero,xtitle='',$
+    xtickname=replicate(' ',10),ymargin=[0, 2],ytickname=' '
   cgplot,sigmaarr,snroptarr_old,/overplot,linestyle=2
-  cgplot,sigmaarr,avgoptarr,title='flux vs width',/ynozero,xtitle='width (sigma)'
-  cgplot,sigmaarr,avgoptarr_old,/overplot,linestyle=2
+  norm_ind=where(abs(sigmaarr-2.3548) eq min(abs(abs(sigmaarr-2.3548))))
+  norm_val=min(avgoptarr[norm_ind])
+  cgplot,sigmaarr,avgoptarr/norm_val,ytitle='Normalized Flux',/ynozero,xtitle='width (sigma)',ymargin=[4, 0]
+  cgplot,sigmaarr,avgoptarr_old/norm_val,/overplot,linestyle=2
+
+  ps_end
+  ps_start,state.savepath+'profile_'+fitsfilenm+'_plot2.eps',xsize=7,ysize=7,/encapsulated
+  
+  cgplot,sigmaarr,snroptarr,ytitle='Average Signal to Noise',/ynozero,$
+    xtitle='',xtickname=replicate(' ',10),ymargin=[0, 2],xr=[1.5,2.75],ytickname=' '
+  cgplot,sigmaarr,snroptarr_old,/overplot,linestyle=2
+  norm_ind=where(abs(sigmaarr-2.3548) eq min(abs(abs(sigmaarr-2.3548))))
+  norm_val=min(avgoptarr[norm_ind])
+  cgplot,sigmaarr,avgoptarr/norm_val,ytitle='Normalized Flux',/ynozero,xr=[1.5,2.75],$
+  xtitle='width (sigma)',ymargin=[4, 0]
+  cgplot,sigmaarr,avgoptarr_old/norm_val,/overplot,linestyle=2
   
 ;  cgplot,sigmaarr,snroptarr,psym=-6,$
 ;    title='SNR vs width',xtitle=' total width (sigma)',$
@@ -295,14 +310,22 @@ endfor ; test_offset
 
 
 !p.multi=[0,1,1]
-ps_start,state.savepath+'profile_'+fitsfilenm+'_v2.ps'
+
+ps_end
+ps_start,state.savepath+'profile_'+fitsfilenm+'_plot3.eps'
 !p.multi=[0,1,1]
 cgplot,offset_arr,snroptarr,title='optimal snr vs center offset',/ynozero,xtitle='distance offset from center (pixels)'
 cgplot,[widtharr[0],widtharr[0]],[-10000,10000],linestyle=2,/overplot
+ps_end
+ps_start,state.savepath+'profile_'+fitsfilenm+'_plot4.eps'
 cgplot,offset_arr,avgoptarr,title='optimal flux vs center offset',/ynozero,xtitle='distance offset from center (pixels)'
 cgplot,[widtharr[0],widtharr[0]],[-10000,10000],linestyle=2,/overplot
+ps_end
+ps_start,state.savepath+'profile_'+fitsfilenm+'_plot5.eps'
 cgplot,offset_arr,snrboxarr,title='boxcar snr vs center offset',/ynozero,xtitle='distance offset from center (pixels)'
 cgplot,[widtharr[0],widtharr[0]],[-10000,10000],linestyle=2,/overplot
+ps_end
+ps_start,state.savepath+'profile_'+fitsfilenm+'_plot6.eps'
 cgplot,offset_arr,avgboxarr,title='boxcar flux vs center offset',/ynozero,xtitle='distance offset from center (pixels)'
 cgplot,[widtharr[0],widtharr[0]],[-10000,10000],linestyle=2,/overplot
 ps_end
@@ -6183,6 +6206,7 @@ pro bmep,path_to_output=path_to_output,botpercent=botpercent,toppercent=topperce
       if yexpect lt ny-1 and yexpect ge 0 then big_img[*,yexpect]=255
     endif else print,'no object found in the slitlist file?!?!?!?'
   endif else print,'WARNING!! No slitlist found for this mask: ',slitlistfile
+  PRINT,'yexpect (final):',yexpect
   
   ;set min/max vals for the image display
   highval=max(big_img)
