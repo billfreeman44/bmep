@@ -62,6 +62,7 @@
 ;
 ;
 ;;git commit -a -m ''
+;;git push
 ;
 ;subroutines listed alphabetically. check bmep or bmep_mosdef subroutines for how to start 
 ;things.  check bmep_KeyboardHandler() for how everything works after that.

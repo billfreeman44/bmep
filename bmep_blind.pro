@@ -194,7 +194,7 @@ end
 
 
 
-pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
+pro bmep_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   starttime=systime(/seconds)
@@ -528,11 +528,11 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
     yexpect=float(yexpect)
     if yexpect ne -1 then begin
     
-      bmep_mosdef_blind_extract,yexpect,width,ny,sciimg,var_img, $
+      bmep_blind_extract,yexpect,width,ny,sciimg,var_img, $
         $ ;OUTPUTS
         f,ferr,fopt,fopterr,p
       objnum=1
-      bmep_mosdef_blind_save,savepath,maskname,filtername,slitname,$
+      bmep_blind_save,savepath,maskname,filtername,slitname,$
         objnum,extrainfo1,extrainfo2,extrainfo3,yexpect,width,isstar,$
         f,ferr,fopt,fopterr,p,min_width
         
@@ -567,12 +567,12 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
             print,maskname,' ', filtername,' ', slitname,' ',k, npyexpect, midpoint, yshift, min_width, npwidth
             if min_width-0.001 gt npwidth then stop
             
-            bmep_mosdef_blind_extract,$
+            bmep_blind_extract,$
               npyexpect,$ ; yposition
               npwidth,$ ; width
               ny,sciimg,var_img,f,ferr,fopt,fopterr,p
               
-            bmep_mosdef_blind_save,savepath,maskname,filtername,slitname,$
+            bmep_blind_save,savepath,maskname,filtername,slitname,$
               objnum,extrainfo1,extrainfo2,extrainfo3,npyexpect,npwidth,0,$ ; 0 is the isstar parameter.
               f,ferr,fopt,fopterr,p,min_width
               
