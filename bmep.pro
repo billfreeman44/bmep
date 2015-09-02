@@ -5,7 +5,7 @@
 ;+               Written by William R. Freeman                  +   
 ;+                                                              +
 ;+                                                              +
-;+     Version 1.1: September 9 2014                            +
+;+     Version 1.2: Aug 25 2015                                 +
 ;+                                                              +
 ;+     Info:  https://github.com/billfreeman44/bmep             +
 ;+            Freeman, William R., et al. in prep               +
@@ -4690,16 +4690,6 @@ end
 ;  cd,original_dir
 ;  print,'done rereduciing'
 ;end
-
-
-
-
-
-
-
-
-
-
 
 pro bmep_mosdef_v01,path_to_output=path_to_output,monitorfix=monitorfix
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
