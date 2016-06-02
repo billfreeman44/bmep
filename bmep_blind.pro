@@ -270,7 +270,7 @@ pro bmep_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
 ;      
 ;    endfor;maskfolders
 
-fullfilenames=file_search(x,'*_eps.fits',/full)
+fullfilenames=file_search(path_to_output,'*_eps.fits',/full)
 
 filenames=[]
 for i=0,n_elements(fullfilenames)-1 do begin
