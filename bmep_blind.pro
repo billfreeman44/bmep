@@ -227,8 +227,67 @@ pro bmep_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
 
   cd,path_to_output,current=original_dir
   
+  pwd
+  
+  
+;[path_to_output]/uds_lae5/2014oct3/Y/uds_lae5_Y_n15844_eps.fits
+;[path_to_output]/uds_lae5/2014oct29/Y/uds_lae5_Y_n15844_eps.fits
+;
+;It’s generally like this: [path_to_output]/[maskname]/[date]/[filter]/file.fits
+;
+
+;fullfilename=[]
+  ;find folders of masks..
+  maskfolders = file_search('',/test_directory)
+  print,'masks found:'
+  forprint,maskfolders
+;;;;redundant code because of recursive file_search option. i am a fool.
+;  ;loop through mask folder and find dates
+;  for i=0,n_elements(maskfolders)-1 do begin
+;    cd,maskfolders[i]
+;    datefolders = file_search('',/test_directory)
+;    print,'dates found:'
+;    forprint,datefolders
+;    
+;    ;loop through date folder and find filters
+;    for j=0,n_elements(datefolders)-1 do begin
+;      cd,datefolders[j]
+;      filterfolders = file_search('',/test_directory)
+;      print,'filters found:'
+;      forprint,filterfolders
+;      
+;      ;loop through filter folder and find files
+;      for k=0,n_elements(filterfolders)-1 do begin
+;        cd,filterfolders[j]
+;        filenames = file_search('*_eps.fits',/FULLY_QUALIFY_PATH,count=count)
+;        print,ssi(count)+" files found"
+;        if count gt 0 then $
+;          fullfilename=[fullfilename,filenames]
+;          
+;        endfor; filterfolders
+;        
+;      endfor; datefolders
+;      
+;    endfor;maskfolders
+
+fullfilenames=file_search(x,'*.fits',/full)
+
+filenames=[]
+for i=0,n_elements(fullfilenames)-1 do begin
+  substrings=strsplit(filenames[i],path_sep(),/extract)
+  filenames=[filenames,substrings[-1]]
+  endfor
+
+  print,'all 2d files'
+  forprint,fullfilename
+  print,'all 2d filenames'
+  forprint,filenames
+  stop
+  
+  
+  
   ;parse folder into different masks!!
-  filenames = file_search('*_eps.fits')
+  
   
   ;parse names
   masks=[]
@@ -237,12 +296,17 @@ pro bmep_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
   
   for i=0,n_elements(filenames)-1 do begin
     substrings=strsplit(filenames[i],'_',/extract) ;Note: no '_' in the maskname
-    if n_elements(substrings) eq 5 then begin
-      masks=[masks,substrings[0]]
-      filters=[filters,substrings[1]]
-      slitnames=[slitnames,substrings[2]]
+    if n_elements(substrings) ge 4 then begin
+      masks=[masks,substrings[0:-4]]
+      filters=[filters,substrings[-3]]
+      slitnames=[slitnames,substrings[-2]]
     endif
   end
+  print,'the masks, filters, slitnames found'
+  forprint,masks,filters,slitnames
+  
+  print,'program to stop here'
+  stop
   
   ;find 1d extractions of non-primary objects
   print,'creating obj info'
@@ -265,6 +329,8 @@ pro bmep_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
 ;      print,slit,' ',w_actual_squared
       printf,lun,mask,filter,slit,objnum,width,$
         w_actual_squared,ypos,yexpect, ypos-yexpect,format='(A10,2x,A4,A10,I3,F9.4,F12.5,F12.5,F9.2,F9.2)' 
+      print,mask,filter,slit,objnum,width,$
+        w_actual_squared,ypos,yexpect, ypos-yexpect,format='(A10,2x,A4,A10,I3,F9.4,F12.5,F12.5,F9.2,F9.2)' 
     endif
   endfor;n_ele filenames1d
   close,lun
@@ -286,6 +352,7 @@ pro bmep_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
     maskname=masks[i]
     filtername=filters[i]
     filename=maskname+'_'+filtername+'_'+slitname+'_eps.fits'
+    noisefilename=maskname+'_'+filtername+'_'+slitname+'_sig.fits'
     
     index=where(npmaskarr eq  maskname and SSS(npslitarr) eq SSS(slitname) and npobjnumarr eq 1,ct)
     if ct ge 1 then w_actual_sqr=avg(w_actual_sqr_arr[index])>0.0 else w_actual_sqr = 0.0
@@ -298,7 +365,8 @@ pro bmep_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
     sciimg[index]=0.0
     
     ;calculate variance image
-    noise_img=readfits(filename, /SILENT,exten_no=4) ;should be a different filename ([...]_sig.fits) with exten_no=1
+    noise_img=readfits(noisefilename, /SILENT,exten_no=1) ;should be a different filename ([...]_sig.fits) with exten_no=1
+    
     ;clean image
     index=where(finite(noise_img) eq 0,/null)
     sciimg[index]=0.0
