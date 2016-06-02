@@ -205,7 +205,7 @@ pro bmep_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
   width=5
   
  ;set output to what is in the envoirnment variable
-  x=getenv('BMEP_2D')
+  x=getenv('BMEP_MOSFIRE_DRP_2D')
   if x ne '' then path_to_output=x
   ;default if no env found
   if ~keyword_set(path_to_output) then path_to_output='~/mosfire/output/idl_output/2D/' ; trailing slash
@@ -215,7 +215,7 @@ pro bmep_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
   cd,path_to_output,current=original_dir
   
   ;get where to save output of extraction program
-  x=getenv('BMEP_1D')
+  x=getenv('BMEP_MOSFIRE_DRP_1D')
   if x ne '' then savepath=x else begin
     savepath=path_to_output+'1d_extracted/'
     ;create folder to extract to if it doesn't exist.
@@ -228,7 +228,7 @@ pro bmep_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
   cd,path_to_output,current=original_dir
   
   ;parse folder into different masks!!
-  filenames = file_search('*.2d.fits')
+  filenames = file_search('*_eps.fits')
   
   ;parse names
   masks=[]
@@ -236,7 +236,7 @@ pro bmep_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
   slitnames=[]
   
   for i=0,n_elements(filenames)-1 do begin
-    substrings=strsplit(filenames[i],'.',/extract)
+    substrings=strsplit(filenames[i],'_',/extract) ;Note: no '_' in the maskname
     if n_elements(substrings) eq 5 then begin
       masks=[masks,substrings[0]]
       filters=[filters,substrings[1]]
@@ -264,7 +264,7 @@ pro bmep_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
       w_actual_squared=(width*width/(2.355^2) - minw*minw/(2.355^2))>0.0
 ;      print,slit,' ',w_actual_squared
       printf,lun,mask,filter,slit,objnum,width,$
-        w_actual_squared,ypos,yexpect, ypos-yexpect,format='(A10,A4,A10,I3,F9.4,F12.5,F12.5,F9.2,F9.2)' 
+        w_actual_squared,ypos,yexpect, ypos-yexpect,format='(A10,2x,A4,A10,I3,F9.4,F12.5,F12.5,F9.2,F9.2)' 
     endif
   endfor;n_ele filenames1d
   close,lun
@@ -285,7 +285,7 @@ pro bmep_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
     slitname=slitnames[i]
     maskname=masks[i]
     filtername=filters[i]
-    filename=maskname+'.'+filtername+'.'+slitname+'.2d.fits'
+    filename=maskname+'_'+filtername+'_'+slitname+'_eps.fits'
     
     index=where(npmaskarr eq  maskname and SSS(npslitarr) eq SSS(slitname) and npobjnumarr eq 1,ct)
     if ct ge 1 then w_actual_sqr=avg(w_actual_sqr_arr[index])>0.0 else w_actual_sqr = 0.0
@@ -298,7 +298,7 @@ pro bmep_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
     sciimg[index]=0.0
     
     ;calculate variance image
-    noise_img=readfits(filename, /SILENT,exten_no=4)
+    noise_img=readfits(filename, /SILENT,exten_no=4) ;should be a different filename ([...]_sig.fits) with exten_no=1
     ;clean image
     index=where(finite(noise_img) eq 0,/null)
     sciimg[index]=0.0
