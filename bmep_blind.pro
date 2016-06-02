@@ -270,19 +270,20 @@ pro bmep_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
 ;      
 ;    endfor;maskfolders
 
-fullfilenames=file_search(x,'*.fits',/full)
+fullfilenames=file_search(x,'*_eps.fits',/full)
 
 filenames=[]
 for i=0,n_elements(fullfilenames)-1 do begin
-  substrings=strsplit(filenames[i],path_sep(),/extract)
+  substrings=strsplit(fullfilenames[i],path_sep(),/extract)
   filenames=[filenames,substrings[-1]]
   endfor
-
+  
+  print
   print,'all 2d files'
-  forprint,fullfilename
+  forprint,fullfilenames
+  print
   print,'all 2d filenames'
   forprint,filenames
-  stop
   
   
   
@@ -297,13 +298,13 @@ for i=0,n_elements(fullfilenames)-1 do begin
   for i=0,n_elements(filenames)-1 do begin
     substrings=strsplit(filenames[i],'_',/extract) ;Note: no '_' in the maskname
     if n_elements(substrings) ge 4 then begin
-      masks=[masks,substrings[0:-4]]
+      masks=[masks,strjoin(substrings[0:-4],'_')]
       filters=[filters,substrings[-3]]
       slitnames=[slitnames,substrings[-2]]
     endif
   end
   print,'the masks, filters, slitnames found'
-  forprint,masks,filters,slitnames
+  forprint,masks+'   ',filters+'   ',slitnames
   
   print,'program to stop here'
   stop
