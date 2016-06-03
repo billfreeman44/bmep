@@ -193,7 +193,7 @@ endif
 end
 
 
-function bmep_blind_yexpect,maskname,filtername,slitname
+function bmep_blind_yexpect,maskname,filtername,slitname,ny,isstar=isstar
 
 pixscale=0.1799
 
@@ -435,7 +435,7 @@ print,'offset is:  ',sxpar(shdr,'OFFSET')
     yshift=0.0
     pixscale=0.1799
     midpoint=ny/2
-    yexpect=bmep_blind_yexpect(maskname,filtername,slitname)
+    yexpect=bmep_blind_yexpect(maskname,filtername,slitname,ny,isstar=isstar)
     ;check if object is a star
     if abs(sxpar(shdr,'PRIORITY')) eq 1 then isstar=1 else  isstar=0
     readcol,savepath+'00_starinfo.txt',maskstar,$
