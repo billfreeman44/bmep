@@ -193,10 +193,64 @@ endif
 end
 
 
+function bmep_blind_yexpect,maskname,filtername,slitname
+
+pixscale=0.1799
+
+  ;find yexpect
+  slitlistfile=getenv('BMEP_MOSFIRE_DRP_MASKS')+maskname+'_SlitList.txt'
+  yexpect=-1
+  isstar=0
+  minwidth=-1
+  yshift=0.0
+  if file_test(slitlistfile) then begin
+    readcol,slitlistfile,slitnamearr,priorityarr,offsetarr,format='X,X,X,X,X,X,X,X,X,A,F,F,X,X,X,X,X,X'
+    index=where(sss(slitnamearr) eq sss(slitname),ct)
+    if ct eq 1 then begin
+      midpoint=ny/2
+      yexpect=midpoint+offsetarr[index[0]]/pixscale
+      ;check if object is a star, If it isn't shift by amount that star is offset by
+      if abs(priorityarr[index[0]]) eq 1 then isstar=1 else begin
+        isstar=0
+        readcol,savepath+'00_starinfo.txt',maskstar,$
+          filtstar,objstar,yexpect_star,yactual_star,widthstar,sigmastar,/silent,format='A,A,A,F,F,F,F'
+        index=where(maskstar eq maskname and filtstar eq filtername,ct)
+        if ct ne 0 then begin
+          print,ct,' number of stars found for ',maskname,' ',filtername
+          yshift=avg(yexpect_star[index] - yactual_star[index])
+          minwidth=min(widthstar[index])
+        endif else print,'WARNING, no stars found in 00_starinfo.txt.  If you have a star on your mask, please extract that first.'
+      endelse ;if isstar
+      PRINT,'yexpect:',yexpect
+      print,'slitname, yexpect, midpoint, yshift, minwidth'
+      print,slitname, yexpect, midpoint, yshift, minwidth
+      yexpect=yexpect-yshift
+      PRINT,'new yexpect:',yexpect
+        
+
+      ;draw white line
+      if yexpect lt ny-1 and yexpect ge 0 then big_img[*,yexpect]=255
+    endif else print,'no object found in the slitlist file?!?!?!?'
+  endif else print,'WARNING!! No slitlist found for this mask: ',slitlistfile
+  PRINT,'yexpect (final):',yexpect
+  
+  
+return,yexpect
+end
+
+
+
+
+
+
+
+
+
+
 
 pro bmep_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
-    bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
+    bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut, bmep_blind_yexpect
   starttime=systime(/seconds)
   norepeat=0 ; 1 skips objects already done, 0 redoes objects done blindly.
   !except=2 ;see division by zero errors instantly.
@@ -285,8 +339,10 @@ filenames=[]
 for i=0,n_elements(fullfilenames)-1 do begin
   substrings=strsplit(fullfilenames[i],path_sep(),/extract)
   filenames=[filenames,substrings[-1]]
+  x=readfits(fullfilenames[i],shdr,/silent)
+print,'offset is:  ',sxpar(shdr,'OFFSET')
   endfor
-  
+  stop
 ;  print
 ;  print,'all 2d files'
 ;  forprint,fullfilenames
@@ -324,7 +380,7 @@ for i=0,n_elements(fullfilenames)-1 do begin
     
   print,'if these numbers arent the same, youve got an improper name somewhere... i think'
   print,n_elements(fullfilenames),n_elements(masks),n_elements(filters),n_elements(slitnames)
-  stop
+;  stop
   if n_elements(fullfilenames) ne n_elements(masks) then message,'improper name that ends with eps somewhere...'
   
 ;  print,'the masks, filters, slitnames found'
@@ -343,6 +399,11 @@ for i=0,n_elements(fullfilenames)-1 do begin
     filtername=filters[i]
     filename=fullfilenames[i]
     noisefilename=strmid(fullfilenames[i],0,strlen(fullfilenames[i])-9)+'_sig.fits'
+    print,'filename is'
+    print,filename
+    print
+    print,'noise filename is'
+    print,noisefilename
     
     index=where(npmaskarr eq  maskname and SSS(npslitarr) eq SSS(slitname) and npobjnumarr eq 1,ct)
     if ct ge 1 then w_actual_sqr=avg(w_actual_sqr_arr[index])>0.0 else w_actual_sqr = 0.0
@@ -374,7 +435,7 @@ for i=0,n_elements(fullfilenames)-1 do begin
     yshift=0.0
     pixscale=0.1799
     midpoint=ny/2
-    yexpect=midpoint+sxpar(shdr,'OFFSET')/pixscale
+    yexpect=bmep_blind_yexpect(maskname,filtername,slitname)
     ;check if object is a star
     if abs(sxpar(shdr,'PRIORITY')) eq 1 then isstar=1 else  isstar=0
     readcol,savepath+'00_starinfo.txt',maskstar,$
