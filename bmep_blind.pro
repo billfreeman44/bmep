@@ -229,7 +229,6 @@ pixscale=0.1799
         
 
       ;draw white line
-      if yexpect lt ny-1 and yexpect ge 0 then big_img[*,yexpect]=255
     endif else print,'no object found in the slitlist file?!?!?!?'
   endif else print,'WARNING!! No slitlist found for this mask: ',slitlistfile
   PRINT,'yexpect (final):',yexpect
@@ -410,14 +409,14 @@ print,'offset is:  ',sxpar(shdr,'OFFSET')
 
     ;read in files
     
-    sciimg=readfits(filename,shdr, /SILENT,exten_no=1)
+    sciimg=readfits(filename,shdr, /SILENT)
     sciimg=double(sciimg)
     
     index=where(finite(sciimg) eq 0,/null)
     sciimg[index]=0.0
     
     ;calculate variance image
-    noise_img=readfits(noisefilename, /SILENT,exten_no=1) 
+    noise_img=readfits(noisefilename, /SILENT) 
     
     ;clean image
     index=where(finite(noise_img) eq 0,/null)
