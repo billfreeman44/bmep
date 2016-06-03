@@ -228,88 +228,10 @@ pro bmep_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
   cd,path_to_output,current=original_dir
   
   pwd
-  
-  
-;[path_to_output]/uds_lae5/2014oct3/Y/uds_lae5_Y_n15844_eps.fits
-;[path_to_output]/uds_lae5/2014oct29/Y/uds_lae5_Y_n15844_eps.fits
-;
-;It’s generally like this: [path_to_output]/[maskname]/[date]/[filter]/file.fits
-;
 
-;fullfilename=[]
-  ;find folders of masks..
-  maskfolders = file_search('',/test_directory)
-  print,'masks found:'
-  forprint,maskfolders
-;;;;redundant code because of recursive file_search option. i am a fool.
-;  ;loop through mask folder and find dates
-;  for i=0,n_elements(maskfolders)-1 do begin
-;    cd,maskfolders[i]
-;    datefolders = file_search('',/test_directory)
-;    print,'dates found:'
-;    forprint,datefolders
-;    
-;    ;loop through date folder and find filters
-;    for j=0,n_elements(datefolders)-1 do begin
-;      cd,datefolders[j]
-;      filterfolders = file_search('',/test_directory)
-;      print,'filters found:'
-;      forprint,filterfolders
-;      
-;      ;loop through filter folder and find files
-;      for k=0,n_elements(filterfolders)-1 do begin
-;        cd,filterfolders[j]
-;        filenames = file_search('*_eps.fits',/FULLY_QUALIFY_PATH,count=count)
-;        print,ssi(count)+" files found"
-;        if count gt 0 then $
-;          fullfilename=[fullfilename,filenames]
-;          
-;        endfor; filterfolders
-;        
-;      endfor; datefolders
-;      
-;    endfor;maskfolders
 
-fullfilenames=file_search(path_to_output,'*_eps.fits',/full)
 
-filenames=[]
-for i=0,n_elements(fullfilenames)-1 do begin
-  substrings=strsplit(fullfilenames[i],path_sep(),/extract)
-  filenames=[filenames,substrings[-1]]
-  endfor
-  
-  print
-  print,'all 2d files'
-  forprint,fullfilenames
-  print
-  print,'all 2d filenames'
-  forprint,filenames
-  
-  
-  
-  ;parse folder into different masks!!
-  
-  
-  ;parse names
-  masks=[]
-  filters=[]
-  slitnames=[]
-  
-  for i=0,n_elements(filenames)-1 do begin
-    substrings=strsplit(filenames[i],'_',/extract) ;Note: no '_' in the maskname
-    if n_elements(substrings) ge 4 then begin
-      masks=[masks,strjoin(substrings[0:-4],'_')]
-      filters=[filters,substrings[-3]]
-      slitnames=[slitnames,substrings[-2]]
-    endif
-  end
-  print,'the masks, filters, slitnames found'
-  forprint,masks+'   ',filters+'   ',slitnames
-  
-  print,'program to stop here'
-  stop
-  
-  ;find 1d extractions of non-primary objects
+ ;find 1d extractions of non-primary objects
   print,'creating obj info'
   filenames1d=file_search(savepath+'*.1d.fits' )
   
@@ -345,6 +267,73 @@ for i=0,n_elements(fullfilenames)-1 do begin
     npwidtharr,w_actual_sqr_arr,npyposarr,npyexpectarr,npyshiftarr,$
     format="A,A,A,I,I,F,I,F,F"
     
+
+
+
+
+
+
+  
+;[path_to_output]/uds_lae5/2014oct3/Y/uds_lae5_Y_n15844_eps.fits
+;[path_to_output]/uds_lae5/2014oct29/Y/uds_lae5_Y_n15844_eps.fits
+;It’s generally like this: [path_to_output]/[maskname]/[date]/[filter]/file.fits
+
+  
+fullfilenames=file_search(path_to_output,'*_eps.fits',/full)
+
+filenames=[]
+for i=0,n_elements(fullfilenames)-1 do begin
+  substrings=strsplit(fullfilenames[i],path_sep(),/extract)
+  filenames=[filenames,substrings[-1]]
+  endfor
+  
+;  print
+;  print,'all 2d files'
+;  forprint,fullfilenames
+;  print
+;  print,'all 2d filenames'
+;  forprint,filenames
+  
+  
+  
+  ;parse folder into different masks!!
+  
+  
+  ;parse names
+  masks=[]
+  filters=[]
+  slitnames=[]
+  
+  for i=0,n_elements(filenames)-1 do begin
+    substrings=strsplit(filenames[i],'_',/extract) ;Note: no '_' in the maskname
+    filters=[filters,substrings[-3]]
+    slitnames=[slitnames,substrings[-2]]
+    
+    ;catch the lame 2d masks
+    CATCH, Error_status
+    IF Error_status NE 0 THEN BEGIN
+      substrings=[substrings,'zzzzzz']
+      CATCH, /CANCEL
+      endif
+    masks=[masks,strjoin(substrings[0:-4],'_')]
+    
+    CATCH, /CANCEL
+    endfor
+    
+    
+    
+  print,'if these numbers arent the same, youve got an improper name somewhere... i think'
+  print,n_elements(fullfilenames),n_elements(masks),n_elements(filters),n_elements(slitnames)
+  stop
+  if n_elements(fullfilenames) ne n_elements(masks) then message,'improper name that ends with eps somewhere...'
+  
+;  print,'the masks, filters, slitnames found'
+;  forprint,masks+'   ',filters+'   ',slitnames
+  
+;  print,'program to stop here'
+;  stop
+  
+ 
     
   if norepeat eq 0 then PS_Start, Filename=savepath+'00_blind_comparison.ps',/quiet
   
@@ -352,13 +341,14 @@ for i=0,n_elements(fullfilenames)-1 do begin
     slitname=slitnames[i]
     maskname=masks[i]
     filtername=filters[i]
-    filename=maskname+'_'+filtername+'_'+slitname+'_eps.fits'
-    noisefilename=maskname+'_'+filtername+'_'+slitname+'_sig.fits'
+    filename=fullfilenames[i]
+    noisefilename=strmid(fullfilenames[i],0,strlen(fullfilenames[i])-9)+'_sig.fits'
     
     index=where(npmaskarr eq  maskname and SSS(npslitarr) eq SSS(slitname) and npobjnumarr eq 1,ct)
     if ct ge 1 then w_actual_sqr=avg(w_actual_sqr_arr[index])>0.0 else w_actual_sqr = 0.0
 
     ;read in files
+    
     sciimg=readfits(filename,shdr, /SILENT,exten_no=1)
     sciimg=double(sciimg)
     
@@ -366,7 +356,7 @@ for i=0,n_elements(fullfilenames)-1 do begin
     sciimg[index]=0.0
     
     ;calculate variance image
-    noise_img=readfits(noisefilename, /SILENT,exten_no=1) ;should be a different filename ([...]_sig.fits) with exten_no=1
+    noise_img=readfits(noisefilename, /SILENT,exten_no=1) 
     
     ;clean image
     index=where(finite(noise_img) eq 0,/null)
