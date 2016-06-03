@@ -342,7 +342,7 @@ for i=0,n_elements(fullfilenames)-1 do begin
   x=readfits(fullfilenames[i],shdr,/silent)
 print,'offset is:  ',sxpar(shdr,'OFFSET')
   endfor
-  stop
+
 ;  print
 ;  print,'all 2d files'
 ;  forprint,fullfilenames
