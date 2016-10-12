@@ -5028,6 +5028,18 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
   ;ensure that there is a '/' at the end of the path.
   if strmid(savepath,strlen(savepath)-1) ne path_sep() then savepath=savepath+path_sep()
   
+  
+  
+  
+  ;get OLD EXTRACTION LOCATIONS
+  x=getenv('BMEP_MOSDEF_OLD_1D')
+  if x ne '' then oldpath=x else begin
+    oldpath='NONE'
+    endelse
+  ;ensure that there is a '/' at the end of the path.
+  if strmid(oldpath,strlen(oldpath)-1) ne path_sep() then oldpath=oldpath+path_sep()
+  
+  
   ;create a 00_starinfo.txt if not exist
   if ~file_test(savepath+'00_starinfo.txt') then begin
     forprint,textout=savepath+'00_starinfo.txt',['maskname '],$
@@ -5117,7 +5129,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
   ;FIND ALL THE STARS!!!
   priority_arr=[]
   for i=0,n_elements(objects)-1 do begin
-    hdr=headfits(maskname+'.'+filtername+'.'+objects[i]+'.2D.fits',exten=1)
+    hdr=headfits(maskname+'.'+filtername+'.'+objects[i]+'.2d.fits',exten=1)
     priority_arr=[priority_arr,sxpar(hdr,'PRIORITY')]
     endfor
   if choice eq n_elements(objects)+1 then begin
@@ -5773,6 +5785,7 @@ wait,0.5
 print,6
 print,'BMEP_MOSDEF_2D is ',getenv('BMEP_MOSDEF_2D')
 print,'BMEP_MOSDEF_1D is ',getenv('BMEP_MOSDEF_1D')
+print,'BMEP_MOSDEF_OLD_1D is ',getenv('BMEP_MOSDEF_OLD_1D')
 ;print,'BMEP_MOSDEF_MASKS is ',getenv('BMEP_MOSDEF_MASKS')
 print,'BMEP_MOSFIRE_DRP_2D is ',getenv('BMEP_MOSFIRE_DRP_2D')
 print,'BMEP_MOSFIRE_DRP_1D is ',getenv('BMEP_MOSFIRE_DRP_1D')
@@ -6020,9 +6033,11 @@ pro bmep,path_to_output=path_to_output,botpercent=botpercent,toppercent=topperce
   
   ;check if fits files exist and create filenames array
   cd,filternames[0]
+  cd,current=currentdir
+  print,'checking in '+currentdir+' for files'
   filenames = file_search(maskname+'_*eps.fits')
   if n_elements(filenames) eq 0 then message,'no fits files found... '
-
+  if n_elements(filenames) eq 1 then print,'WARNING: make sure '+currentdir+' is a folder that has output in it. if not, delete it.'
   ;get the names of the slits
   slitnames=[]
   for i=0,n_elements(filenames)-1 do $
