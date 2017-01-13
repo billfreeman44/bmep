@@ -546,7 +546,8 @@ print,'offset is:  ',sxpar(shdr,'OFFSET')
         
       extrainfo2=[$
         string(sxpar(shdr,'CRVAL1')),$
-        string(sxpar(shdr,'CDELT1')),$
+;        string(sxpar(shdr,'CDELT1')),$
+         string(sxpar(shdr,'CD1_1')),$
         string(sxpar(shdr,'CRPIX1')),$
         'LINEAR',$
         string(sxpar(shdr,'EXPTIME')),$
