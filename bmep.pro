@@ -5,7 +5,7 @@
 ;+               Written by William R. Freeman                  +   
 ;+                                                              +
 ;+                                                              +
-;+     Version 1.2: Aug 25 2015                                 +
+;+     Version 1.3: Jan 25 2017                                 +
 ;+                                                              +
 ;+     Info:  https://github.com/billfreeman44/bmep             +
 ;+            Freeman, William R., et al. in prep               +
