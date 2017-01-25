@@ -3115,7 +3115,9 @@ end
   state.l_bins=[0,0,0,0,0,0,0,0,0,0,0]
   state.r_bins=[0,0,0,0,0,0,0,0,0,0,0]
   state.cmode_arr=[0,0,0,0,0,0,0,0,0,0,0]
+  plot,findgen(100),title='CROSS SECTION HAS BEEN RESET'
   print,'reset cross section'
+   if state.cont_mode eq 0 then  print,'cont mode is currently off' ELSE print,'cont mode is currently on'
 end
 'c': begin
   if state.cont_mode eq 0 then begin
