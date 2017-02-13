@@ -5064,6 +5064,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
       objects=[objects,substrings[2]]
     endif ;else message,'ERROR something without a proper name is in the folder.'
   end
+  if n_elements(masks) eq 0 then message,'you have no valid files in your 2D folder'
   
   ; user  choose mask
   masks_no_duplicates=masks[rem_dup(masks)]
