@@ -4999,7 +4999,7 @@ end
 
 
 
-pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
+pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix,twothick=twothick
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   !except=2 ;see division by zero errors instantly.
@@ -5267,6 +5267,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
       
       ;draw white line
       if yexpect lt ny-1 and yexpect ge 0 then big_img[*,yexpect]=255
+      if keyword_set(twothick) and yexpect lt ny-2 and yexpect ge 0 then big_img[*,yexpect+1]=255
       
       ;plot verticl lines where should be ha... etc 
       ;define line names
@@ -5286,6 +5287,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix
             index=where(abs(wavel-linewave) eq min(abs(wavel-linewave)),ct)
 ;            print,index
             if ct eq 1 then big_img[index,ny-20:ny+20]=255
+            if keyword_set(twothick) and ct eq 1 then big_img[index+1,ny-20:ny+20]=255
             endif
           ;xyouts
           endfor
@@ -5756,6 +5758,201 @@ function bmep_sigma_clip,arr,wind,N_sigma=N_sigma
   print,n_replaced
   return,arr
 end
+
+
+
+
+;version of bmep to just run in current directory and assume
+;every file in there is a spectrum to be extracted.
+pro bmep_stupid,path_to_output=path_to_output,botpercent=botpercent,toppercent=toppercent,$
+  snrthresh_max=snrthresh_max,snrthresh_min=snrthresh_min
+  FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
+    bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
+  ;files should be in BMEP_MOSFIRE_DRP_2D/maskname/date/band/
+  ;output will be saved in either BMEP_MOSFIRE_DRP_1D or
+  ;BMEP_MOSFIRE_DRP_2D/maskname/date/1d_extracted/
+  print,"now running BMEP"
+  
+  ;setup things
+  !except=2
+  astrolib
+  
+  ;default parameters
+  ;mess with these to change how an image is viewed. (scaling)
+  if ~keyword_set(botpercent) then botpercent=10.0
+  if ~keyword_set(toppercent) then toppercent=90.0
+  if ~keyword_set(snrthresh_max) then snrthresh_max=3.0
+  if ~keyword_set(snrthresh_min) then snrthresh_min=2.5
+  
+  ;clear away all windows!!
+  close,/all
+  ireset,/no_prompt
+  
+  ;set output to what is in the envoirnment variable
+  cd,current=path_to_output
+  path_to_output=path_to_output+path_sep()
+  
+  print,'the output 2D path is',path_to_output
+  
+  ;make 1d_extracted folder or decide where to put output if BMEP_MOSFIRE_DRP_1D is specified
+  savepath=path_to_output+'1d_extracted'+path_sep()
+  if ~bmep_DIR_EXIST(savepath) then file_mkdir,'1d_extracted'
+
+  
+    
+
+  
+  ;find fits files that aren't the error spectra.
+  ;error spectra end in .sig.fits
+  filenames = file_search('*.fits')
+  forprint,filenames
+  index=where(strmid(filenames,8,/reverse_offset) ne '.sig.fits')
+  filenames=filenames[index]
+  forprint,indgen(n_elements(filenames)),replicate(' ',n_elements(filenames)),filenames
+  print,n_elements(filenames),' many files'
+  print,'which slit?'
+  choice=0
+  read,'Enter number here > ',choice
+  if choice lt 0 then goto,theend
+  if choice ge n_elements(filenames)+2 then goto,theend
+  
+
+  
+  
+  
+  
+  if choice eq n_elements(filenames) then begin
+    choicearr=indgen(n_elements(filenames))
+    minobjnum=0
+    maxobjnum=n_elements(filenames)-1
+    print,'min object num?'
+    read,minobjnum
+    print,'max object num?'
+    read,maxobjnum
+    index=where(choicearr ge minobjnum and choicearr le maxobjnum,/null)
+    choicearr=choicearr[index]
+    endif else choicearr=[choice]
+  
+  for i=0,n_elements(choicearr)-1 do begin
+      epsfile=filenames[choicearr[i]]
+      stdfile=strmid(epsfile,0,strlen(epsfile)-4)+'sig.fits'
+      
+      if ~file_test(epsfile) then print,'WARNING!!!! file '+epsfile+' does not exist'
+      if ~file_test(stdfile) then print,'WARNING!!!! file '+stdfile+' does not exist'
+     
+      if file_test(epsfile) and file_test(stdfile) then begin
+
+        ;read in files
+        sciimg=readfits(epsfile,shdr, /SILENT)
+        sciimg=double(sciimg)
+        std_img=readfits(stdfile, /SILENT)
+        std_img=double(abs(std_img))
+        
+        ny=n_elements(sciimg[0,*])
+        nx=n_elements(sciimg[*,0])
+        
+        ;clean images of nan or inf values
+        bmep_clean_imgs,sciimg,std_img
+
+        ;calculate variance image
+        index=where(std_img ne 0.0,ct)
+        var_img=replicate(0.0,nx,ny)
+        var_img[index]=std_img[index]*std_img[index]
+        
+
+        ;calculate wavel. CTYPE1, CRVAL1, and CDELT1
+        refpix = sxpar(shdr,'CRPIX1')
+        lam0   = sxpar(shdr,'CRVAL1')
+        delta  = sxpar(shdr,'CDELT1')
+        if delta lt 1.1 then delta  = sxpar(shdr,'CD1_1')
+        wavel=lam0 + (findgen(n_elements(sciimg[*,0]))+refpix-1.0) * delta
+        
+
+        
+        ;snr image
+        index=where(std_img ne 0)
+        snrimg=sciimg*0.0
+        snrimg[index]=sciimg[index]/std_img[index]
+        snr2sigCut=snrimg
+        index=where(snr2sigCut lt snrthresh_min,/null)
+        snr2sigCut[index]=0.0
+        index=where(snr2sigCut gt snrthresh_max,/null)
+        snr2sigCut[index]=3.0
+        
+;        stop
+        big_img=findgen(nx,(ny*2))
+        big_img[*,ny*0:ny*1-1]=bytscl(sciimg,top=255,/NAN,$
+          min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))   ;science img 
+        big_img[*,ny*1:ny*2-1]=bytscl(snr2sigCut,top=255,/NAN,$
+          min=2.0,max=3.0)   ;snr img (don't change the 2 and 3, its handled above)
+        print,'top science cut is',bmep_percent_cut(sciimg,toppercent)
+        print,'bot science cut is',bmep_percent_cut(sciimg,botpercent)
+        print
+
+          
+        ;resize big_img if really big in y direction...
+        if ny*2 gt 1000 then begin
+          big_img=bytscl(sciimg,top=255,/NAN,$
+            min=bmep_percent_cut(sciimg,botpercent),max=bmep_percent_cut(sciimg,toppercent))
+        endif
+        
+        
+                
+ 
+  
+  ;set min/max vals for the image display
+  highval=max(big_img)
+  lowval=min(big_img)
+        
+        
+        extrainfo1=[$
+          'CRVAL1',$
+          'CDELT1',$
+          'CRPIX1',$
+          'CTYPE1'$
+          ]
+          
+        extrainfo2=[$
+          string(sxpar(shdr,'CRVAL1')),$
+          string(delta),$
+          string(refpix),$
+          'LINEAR'$
+          ]
+          
+        ;comments
+        extrainfo3=[$
+          ' ',$
+          ' ',$
+          ' ',$
+          ' '$
+          ]
+          slitname='no_slitname'
+          filtername='no_filtername'
+        bmep_display_image,big_img,sciimg,var_img,highval,lowval,slitname,filtername,wavel,savepath,revisevar=0,$
+          extrainfo1=extrainfo1,extrainfo2=extrainfo2,extrainfo3=extrainfo3,savetext=0
+        
+      endif ; if files exist
+  endfor ; choicearr
+  
+  
+  theend:
+  
+
+  print,'end of BMEP stupid'
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 pro bmep_test
