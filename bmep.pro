@@ -2576,7 +2576,7 @@ if key eq 'm' then begin
   print,'fit status (1 is good) ' ,status
   if status eq 1 or status eq 3 then begin
     oplot,findgen(upper-lower)+lower,dummy,color=245
-    wait,1
+    wait,0.5
     
     print,'peak    : ',coeff[0],' pm ',gauss_sigma[0],' estimate was ',estimates[0]
     print,'center  : ',coeff[1],' pm ',gauss_sigma[1],' estimate was ',estimates[1]

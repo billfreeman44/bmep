@@ -164,12 +164,12 @@ pro bmep_mosdef_getinfo,yposthresh=yposthresh,widththresh=widththresh
       (abs(calc_width - prior_width) gt widththresh) $
       then suffix4=' BAD ' else suffix4=' OK '
       
-    print,     maskarr[i],filtarr[i],slitarr[i],objnumarr[i],$
+    print,     maskarr[i]+' ',filtarr[i],slitarr[i],objnumarr[i],$
       widtharr[i],minwarr[I],yposarr[i],yposarr[i]-yexpectarr[i],calc_width,$
-      format='(A7,A2,A9,"-",I1,"'+suffix+'",F7.2,"'+suffix2+'(",F7.2,") ",F7.2,F7.1,"'+suffix3+'",F6.2,"'+suffix4+'")
-    printf,lun,maskarr[i],filtarr[i],slitarr[i],objnumarr[i],$
+      format='(A9,A2,A9,"-",I1,"'+suffix+'",F7.2,"'+suffix2+'(",F7.2,") ",F7.2,F7.1,"'+suffix3+'",F6.2,"'+suffix4+'")
+    printf,lun,maskarr[i]+' ',filtarr[i],slitarr[i],objnumarr[i],$
       widtharr[i],minwarr[I],yposarr[i],yposarr[i]-yexpectarr[i],calc_width,$
-      format='(A7,A2,A9,"-",I1,"'+suffix+'",F7.2,"'+suffix2+'",F7.2," ",F7.2,F7.1,"'+suffix3+'",F6.2,"'+suffix4+'")
+      format='(A9,A2,A9,"-",I1,"'+suffix+'",F7.2,"'+suffix2+'",F7.2," ",F7.2,F7.1,"'+suffix3+'",F6.2,"'+suffix4+'")
   ;  stop
   endfor
   index=where(wbyhandarr eq 1)
