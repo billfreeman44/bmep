@@ -2016,16 +2016,26 @@ FUNCTION bmep_KeyboardHandler, oWin, $
                 linewavels=[6562.801,6583.45,3727.28,5006.843,4958.911,4861.363,6716.44,4341.00];air
             redshift_suspect=-1.0
 
-            index=where(state.extrainfo1 eq 'Z_SPEC',ct)
-            if ct eq 1 and state.extrainfo2[index[0]] gt 0.0 then redshift_suspect=state.extrainfo2[index[0]] $
-              else begin
-            index=where(state.extrainfo1 eq 'Z_GRISM',ct)
-            if ct eq 1 and state.extrainfo2[index[0]] gt 0.0 then redshift_suspect=state.extrainfo2[index[0]] $
-              else begin
+
+            index=where(state.extrainfo1 eq 'Z_A',ct)
+            if ct eq 1 and state.extrainfo2[index[0]] gt 0.0 then redshift_suspect=state.extrainfo2[index[0]] 
+            
+            if redshift_suspect le 0  then begin
+              index=where(state.extrainfo1 eq 'Z_SPEC',ct)
+              if ct eq 1 and state.extrainfo2[index[0]] gt 0.0 then redshift_suspect=state.extrainfo2[index[0]] 
+              endif
+              
+            if redshift_suspect le 0  then begin
+              index=where(state.extrainfo1 eq 'Z_GRISM',ct)
+              if ct eq 1 and state.extrainfo2[index[0]] gt 0.0 then redshift_suspect=state.extrainfo2[index[0]] 
+              endif
+              
+            if redshift_suspect le 0  then begin
               index=where(state.extrainfo1 eq 'Z_PHOT',ct)
               if ct eq 1 and state.extrainfo2[index[0]] gt 0.0 then redshift_suspect=state.extrainfo2[index[0]]
-              endelse
-            endelse
+              endif
+
+              
             if redshift_suspect GT 0 THEN BEGIN
               FOR k=0,n_elements(linenames)-1 do begin
                 oplot,[linewavels[k] * (1.0+redshift_suspect),linewavels[k] * (1.0+redshift_suspect)],minmax(yr),color=456789,linestyle=0
@@ -2936,6 +2946,8 @@ if key eq 'X' then begin
     
     index=where(state.extrainfo1 eq 'PRIORITY',ct)
     if ct eq 1 then print,' PRIORITY is '+ssi(state.extrainfo2[index[0]])
+    index=where(state.extrainfo1 eq 'Z_A',ct)
+    if ct eq 1 then print,' Z_A is '+ssf(state.extrainfo2[index[0]])
     index=where(state.extrainfo1 eq 'Z_PHOT',ct)
     if ct eq 1 then print,' Z_PHOT is '+ssf(state.extrainfo2[index[0]])
     index=where(state.extrainfo1 eq 'Z_GRISM',ct)
@@ -5287,7 +5299,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix,twothick=two
       
       
       redshift_suspect=bmep_mosdef_redshift_suspect(maskname,slitname,savepath)
-
+      Z_A=redshift_suspect
       if redshift_suspect le 0 then redshift_suspect=sxpar(shdr,'Z_SPEC')
       if redshift_suspect le 0 then redshift_suspect=sxpar(shdr,'Z_GRISM')
       if redshift_suspect le 0 then redshift_suspect=sxpar(shdr,'Z_PHOT')
@@ -5297,7 +5309,6 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix,twothick=two
           linewave=linewavels[k] * (1.0+redshift_suspect)
           if linewave gt min(wavel) and linewave lt max(wavel) then begin
             index=where(abs(wavel-linewave) eq min(abs(wavel-linewave)),ct)
-            print,ct,' ',index,' ',nx
             if ct eq 1 then big_img[index,ny-20:ny+20]=255
             if keyword_set(twothick) and ct eq 1 then big_img[index+1,ny-20:ny+20]=255
             endif
@@ -5415,6 +5426,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix,twothick=two
         'Z_PHOT',$
         'Z_GRISM',$
         'Z_SPEC',$
+        'Z_A',$  ;note extra redshift guess.
         'SCALING',$
         $
         'SEEING',$
@@ -5469,6 +5481,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix,twothick=two
         string(sxpar(shdr,'Z_PHOT')),$
         string(sxpar(shdr,'Z_GRISM')),$
         string(sxpar(shdr,'Z_SPEC')),$
+        string(z_a),$
         string(sxpar(shdr,'SCALING')),$
         $
         string(sxpar(shdr,'SEEING')),$
@@ -5524,6 +5537,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix,twothick=two
         ' Photometric redshift from 3D-HST', $
         ' GRISM redshift from 3D-HST  ', $
         ' External spectroscopic redshift', $
+        ' Redshift guess from Alice', $
         ' Scaling factor; cts/s to erg/s/cm^2/Angstrom', $
         $
         ' FWHM measured by 2D reduction code [arcsec]' ,$
