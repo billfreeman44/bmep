@@ -11,9 +11,10 @@ pro bmep_mosdef_getinfo,yposthresh=yposthresh,widththresh=widththresh
   if savepath eq '' then savepath='/Users/bill/mosdef/sedona_1d_extracted/'
   cd,savepath,current=original_dir
   
-  spawn,'ls *.1d.fits > filenames.txt'
-  readcol,'filenames.txt',filenames,format='A'
-  spawn,'rm filenames.txt'
+;  spawn,'ls *.1d.fits > filenames.txt'
+;  readcol,'filenames.txt',filenames,format='A'
+;  spawn,'rm filenames.txt'
+filenames=file_search('*.1d.fits')
   maskarr=[]
   filtarr=[]
   slitarr=[]
@@ -109,7 +110,9 @@ pro bmep_mosdef_getinfo,yposthresh=yposthresh,widththresh=widththresh
   minwarr=minwarr[index]
   blindarr=blindarr[index]
   
-  
+;  sa=replicate(' ',n_elements(slitarr))
+;  forprint,indgen(n_elements(slitarr)),sa,slitarr,sa, blindarr
+;  stop
   
   print,savepath+'00_extract_info.txt'
   openw,lun,savepath+'00_extract_info.txt',/get_lun
@@ -130,7 +133,7 @@ pro bmep_mosdef_getinfo,yposthresh=yposthresh,widththresh=widththresh
   print      ,'# BAD after yposdiff means this value is more than '+ssf(yposthresh)+' different than others'
   print      ,'# BAD after actual_width means this value is more than '+ssf(widththresh)+' different than others'
   for i=0,n_elements(slitarr)-1 do begin
-  
+
     ;space out different objects
     if i gt 0 and slitarr[i] ne slitarr[i-1] then print
     if i gt 0 and slitarr[i] ne slitarr[i-1] then printf,lun
@@ -156,14 +159,15 @@ pro bmep_mosdef_getinfo,yposthresh=yposthresh,widththresh=widththresh
       then suffix3=' BAD ' else suffix3=' OK '
       
     if i gt 0 then prior_width=calc_width
-    calc_width=( minwarr[i] gt widtharr[i] or minwarr[i] lt 0.0) ? 0.0: sqrt(((widtharr[i]/2.355)^2-(minwarr[I]/2.355)^2)>0.0)
+    calc_width= (minwarr[i] gt widtharr[i] or minwarr[i] lt 0.0) ? 0.0 : sqrt(((widtharr[i]/2.355)^2-(minwarr[I]/2.355)^2)>0.0)
     if (i gt 0) and $
       (slitarr[i] eq slitarr[i-1]) and $
       (objnumarr[i] eq objnumarr[i-1]) and $
       (isstararr[i] ne 1) and $
       (abs(calc_width - prior_width) gt widththresh) $
       then suffix4=' BAD ' else suffix4=' OK '
-      
+    
+    
     print,     maskarr[i]+' ',filtarr[i],slitarr[i],objnumarr[i],$
       widtharr[i],minwarr[I],yposarr[i],yposarr[i]-yexpectarr[i],calc_width,$
       format='(A9,A2,A9,"-",I1,"'+suffix+'",F7.2,"'+suffix2+'(",F7.2,") ",F7.2,F7.1,"'+suffix3+'",F6.2,"'+suffix4+'")
@@ -172,8 +176,8 @@ pro bmep_mosdef_getinfo,yposthresh=yposthresh,widththresh=widththresh
       format='(A9,A2,A9,"-",I1,"'+suffix+'",F7.2,"'+suffix2+'",F7.2," ",F7.2,F7.1,"'+suffix3+'",F6.2,"'+suffix4+'")
   ;  stop
   endfor
-  index=where(wbyhandarr eq 1)
-  print,n_elements(index)
+;  index=where(wbyhandarr eq 1)
+;  print,n_elements(index)
   
   close,lun
   free_lun,lun

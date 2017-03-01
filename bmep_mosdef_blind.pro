@@ -4,12 +4,15 @@ function bmep_blind_hdr,f,extrainfo1,extrainfo2,extrainfo3,yexpect,width,$
     isstar,objnum,min_width,exten=exten,image=image,no_wave_info=no_wave_info
     
   MKHDR, header, f, exten=exten, image=image
-  FOR jj=0,n_elements(extrainfo1) -1 do $
-    if VALID_NUM(extrainfo2[jj]) then $
-    if float(extrainfo2[jj]) eq fix(extrainfo2[jj]) then $
-    sxaddpar, Header,extrainfo1[jj],fix(extrainfo2[jj]),extrainfo3[jj] else $
-    sxaddpar, Header,extrainfo1[jj],float(extrainfo2[jj]),extrainfo3[jj] else $
+  FOR jj=0,n_elements(extrainfo1) -1 do begin
+    if VALID_NUM(extrainfo2[jj],value,/integer) then $
+      if float(extrainfo2[jj]) eq long(extrainfo2[jj]) then $
+        sxaddpar, Header,extrainfo1[jj],long(extrainfo2[jj]),extrainfo3[jj] else $
+      sxaddpar, Header,extrainfo1[jj],float(extrainfo2[jj]),extrainfo3[jj] else $
     sxaddpar, Header,extrainfo1[jj],STRCOMPRESS(extrainfo2[jj], /REMOVE_ALL),extrainfo3[jj]
+    
+    endfor
+    
   sxaddpar, Header, 'YPOS', yexpect
   sxaddpar, Header, 'WIDTH', width
   sxaddpar, Header, 'OBJNUM', objnum
@@ -263,8 +266,8 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
       yexpect=sxpar(hdr,'YEXPECT')
       w_actual_squared=(width*width/(2.355^2) - minw*minw/(2.355^2))>0.0
 ;      print,slit,' ',w_actual_squared
-      printf,lun,mask,filter,slit,objnum,width,$
-        w_actual_squared,ypos,yexpect, ypos-yexpect,format='(A10,A4,A10,I3,F9.4,F12.5,F12.5,F9.2,F9.2)' 
+      printf,lun,mask+' ',filter,slit,objnum,width,$
+        w_actual_squared,ypos,yexpect, ypos-yexpect,format='(A15,A4,A10,I3,F9.4,F12.5,F12.5,F9.2,F9.2)' 
     endif
   endfor;n_ele filenames1d
   close,lun
@@ -278,8 +281,8 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
     npwidtharr,w_actual_sqr_arr,npyposarr,npyexpectarr,npyshiftarr,$
     format="A,A,A,I,I,F,I,F,F"
     
-    
-  if norepeat eq 0 then PS_Start, Filename=savepath+'00_blind_comparison.ps',/quiet
+
+;  if norepeat eq 0 then PS_Start, Filename=savepath+'00_blind_comparison.ps',/quiet
   
   for i=0,n_elements(slitnames)-1 do begin
     slitname=slitnames[i]
@@ -337,52 +340,11 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
         endif
 
 
-      
-      ;IF THE OBJECT IS EXTRACTED IN OTHER BANDS, THEN USE THEIR WIDTH, NOT THE STAR. (nvm, already fixed)
-;      index=where(npmaskarr eq maskname and npslitarr eq slitname AND npobjnumarr eq 1,ct)
-;      if ct gt 0 then begin
-;        
-;        endif;fixing objects 
-      
-      ;      print,'slitname, yexpect, midpoint, yshift, width'
       print,maskname,' ', filtername,' ', slitname,' ',1, yexpect, midpoint, yshift,min_width, width
             if min_width-0.001 gt width then stop
       
     endif else print,'no object found in the star file?!?!?!?'
-    
-    
-    ;calculate info to add to hdr
-    ;its a 2xn array where n is number of things
-;    extrainfo1=[$
-;      'CRVAL1',$
-;      'CDELT1',$
-;      'CRPIX1',$
-;      'CTYPE1',$
-;      'EXPTIME',$
-;      'FILNM',$
-;      'MSKNM',$
-;      'FILTNM',$
-;      'SLITNM',$
-;      'ISSTAR',$
-;      'YEXPECT'$
-;      ]
-;      
-;    extrainfo2=[$
-;      string(sxpar(shdr,'CRVAL1')),$
-;      string(sxpar(shdr,'CDELT1')),$
-;      string(sxpar(shdr,'CRPIX1')),$
-;      'LINEAR',$
-;      string(sxpar(shdr,'EXPTIME')),$
-;      filename,$
-;      maskname,$
-;      filtername,$
-;      slitname, $
-;      ssi(isstar), $
-;      ssf(yexpect) $
-;      ]
-      
-      
-      
+
        extrainfo1=[$
         'CRVAL1',$
         'CDELT1',$
@@ -562,24 +524,24 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
         $ ;OUTPUTS
         f,ferr,fopt,fopterr,p
       objnum=1
-      bmep_mosdef_blind_save,savepath,maskname,filtername,slitname,$
+      bmep_mosdef_blind_save,savepath,maskname,filtername,sss(slitname),$
         objnum,extrainfo1,extrainfo2,extrainfo3,yexpect,width,isstar,$
         f,ferr,fopt,fopterr,p,min_width
         
       ;plot a comparison if needed...
-      if norepeat eq 0 then begin
-        suffix='' ;ssi(objnum)
-        ;search for existing 1d file
-        if file_test(savepath+maskname+'.'+filtername+'.'+slitname+suffix+'.1d.fits')  then begin
-          data=readfits(savepath+maskname+'.'+filtername+'.'+slitname+suffix+'.1d.fits',shdr,exten_no=1,/silent)
-          wavel=(sxpar(shdr,'CRVAL1')+findgen(n_elements(sciimg[*,0]))*sxpar(shdr,'CDELT1'))
-          data=readfits(savepath+maskname+'.'+filtername+'.'+slitname+suffix+'.1d.fits',shdr,exten_no=5,/silent)
-          cgplot,data,title=maskname+'.'+filtername+'.'+slitname+suffix+' y profile',ytitle='P'
-          cgplot,(p/max(p))*max(data),color='red',/overplot
-          
-        ;          !p.multi=[0,1,1]
-        endif;file test
-      endif ;norepeat eq 0 /file test
+;      if norepeat eq 0 then begin
+;        suffix='' ;ssi(objnum)
+;        ;search for existing 1d file
+;        if file_test(savepath+maskname+'.'+filtername+'.'+slitname+suffix+'.1d.fits')  then begin
+;          data=readfits(savepath+maskname+'.'+filtername+'.'+slitname+suffix+'.1d.fits',shdr,exten_no=1,/silent)
+;          wavel=(sxpar(shdr,'CRVAL1')+findgen(n_elements(sciimg[*,0]))*sxpar(shdr,'CDELT1'))
+;          data=readfits(savepath+maskname+'.'+filtername+'.'+slitname+suffix+'.1d.fits',shdr,exten_no=5,/silent)
+;          cgplot,data,title=maskname+'.'+filtername+'.'+slitname+suffix+' y profile',ytitle='P'
+;          cgplot,(p/max(p))*max(data),color='red',/overplot
+;          
+;        ;          !p.multi=[0,1,1]
+;        endif;file test
+;      endif ;norepeat eq 0 /file test
       
       ;search for np objects
       ;      ,npmaskarr,npfilterarr,npslitarr,npobjnumarr,$
@@ -601,7 +563,7 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
               npyexpect,$ ; yposition
               npwidth,$ ; width
               ny,sciimg,var_img,f,ferr,fopt,fopterr,p
-              
+
             bmep_mosdef_blind_save,savepath,maskname,filtername,slitname,$
               objnum,extrainfo1,extrainfo2,extrainfo3,npyexpect,npwidth,0,$ ; 0 is the isstar parameter.
               f,ferr,fopt,fopterr,p,min_width
@@ -622,7 +584,7 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
   ;    stop
   endfor ; n_ele objects
   theend:
-  if norepeat eq 0 then ps_end
+;  if norepeat eq 0 then ps_end
   cd,original_dir
   !p.multi=[0,1,1]
   print,'blind extraction took: ',round(systime(/seconds)-starttime),' seconds
