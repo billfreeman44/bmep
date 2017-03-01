@@ -3680,7 +3680,17 @@ pro bmep_mosdef_update_yexpect
   cd,original_dir
 end
 
-
+function bmep_mosdef_redshift_suspect,maskname,slitname,savepath
+;named like 'ae1_02.z.dat'
+if file_test(savepath+maskname+'.z.dat') then begin
+  readcol,savepath+maskname+'.z.dat',slitnamearr,zarr,format='X,X,A,X,X,X,X,X,F',/silent
+  if n_elements(slitnamearr) gt 1 then begin ;double check readcol worked...
+    INDEX=where(slitnamearr eq slitname,ct)
+    if ct eq 1 then return,float(zarr[index[0]])
+    endif
+  endif 
+  return,-1.0
+end
 
 
 
@@ -5274,9 +5284,11 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix,twothick=two
       linenames= ['HA6565','NII6585','OII_dbl','OIII5008','OIII4960','HB4863','SII_dbl','HG4342']
       linewavels=[6564.614,6585.27,3728.48,5008.239,4960.295,4862.721,6718.29,4339.00];vacuum
       redshift_suspect=-1.0
+      
+      
+      redshift_suspect=bmep_mosdef_redshift_suspect(maskname,slitname,savepath)
 
-
-      redshift_suspect=sxpar(shdr,'Z_SPEC')
+      if redshift_suspect le 0 then redshift_suspect=sxpar(shdr,'Z_SPEC')
       if redshift_suspect le 0 then redshift_suspect=sxpar(shdr,'Z_GRISM')
       if redshift_suspect le 0 then redshift_suspect=sxpar(shdr,'Z_PHOT')
       print,'redshift suspect ',redshift_suspect
@@ -5285,7 +5297,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix,twothick=two
           linewave=linewavels[k] * (1.0+redshift_suspect)
           if linewave gt min(wavel) and linewave lt max(wavel) then begin
             index=where(abs(wavel-linewave) eq min(abs(wavel-linewave)),ct)
-;            print,index
+            print,ct,' ',index,' ',nx
             if ct eq 1 then big_img[index,ny-20:ny+20]=255
             if keyword_set(twothick) and ct eq 1 then big_img[index+1,ny-20:ny+20]=255
             endif
