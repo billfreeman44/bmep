@@ -5,7 +5,7 @@ function bmep_blind_hdr,f,extrainfo1,extrainfo2,extrainfo3,yexpect,width,$
     
   MKHDR, header, f, exten=exten, image=image
   FOR jj=0,n_elements(extrainfo1) -1 do begin
-    if VALID_NUM(extrainfo2[jj],value,/integer) then $
+    if VALID_NUM(extrainfo2[jj]) then $
       if float(extrainfo2[jj]) eq long(extrainfo2[jj]) then $
         sxaddpar, Header,extrainfo1[jj],long(extrainfo2[jj]),extrainfo3[jj] else $
       sxaddpar, Header,extrainfo1[jj],float(extrainfo2[jj]),extrainfo3[jj] else $
