@@ -341,7 +341,7 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
         yexpect=yexpect-4 ; account for the bottom slit.
         endif
 
-
+      yexpect_save=yexpect
       print,maskname,' ', filtername,' ', slitname,' ',1, yexpect, midpoint, yshift,min_width, width
             if min_width-0.001 gt width then stop
       
@@ -551,6 +551,7 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
       
       index=where(npmaskarr eq maskname and SSS(npslitarr) eq SSS(slitname) and npobjnumarr gt 1,ct)
       if ct gt 0 then begin
+        yexpect=float(round(yexpect_save)) ; correct for shifted extracted spectra.
         for k=2,6 do begin
           index2=where(npobjnumarr[index] eq k,ct)
           if ct ne 0 then begin ;message,'insanity. probably an object #3 is there with no object #2'
