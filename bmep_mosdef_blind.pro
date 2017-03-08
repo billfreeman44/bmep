@@ -337,7 +337,7 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
       starfile=maskname+'.'+filtername+'.'+objstar[index[sub]]+'.1d.fits'
 ;      p=readfits('1d_extracted/'+starfile,exten_no=5,/silent)
       
-      if sxpar(shdr,'SLIT') eq 1 and y_expect_shift ne 0.0 then begin 
+      if sxpar(shdr,'SLIT') eq 1 and y_expect_shift eq 0.0 then begin 
         yexpect=yexpect-4 ; account for the bottom slit.
         endif
 
