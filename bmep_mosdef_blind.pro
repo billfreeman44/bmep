@@ -292,7 +292,8 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
     
     index=where(npmaskarr eq  maskname and SSS(npslitarr) eq SSS(slitname) and npobjnumarr eq 1,ct)
     if ct ge 1 then w_actual_sqr=avg(w_actual_sqr_arr[index])>0.0 else w_actual_sqr = 0.0
-
+    if ct ge 1 then y_expect_shift=avg(npyshiftarr[index]) else y_expect_shift = 0.0 
+  
     ;read in files
     sciimg=readfits(filename,shdr, /SILENT,exten_no=1)
     sciimg=double(sciimg)
@@ -328,6 +329,7 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
       ;          print,ct,' number of stars found for ',maskname,' ',filtername
       yshift=avg(yexpect_star[index] - yactual_star[index])
       yexpect=yexpect-yshift
+;      yexpect=yexpect+y_expect_shift
       yexpect=round(yexpect)
       width=(2.355)*sqrt(min(widthstar[index],sub)*min(widthstar[index],sub)/(2.355^2) + w_actual_sqr)
       min_width=min(widthstar[index],sub)
@@ -335,7 +337,7 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
       starfile=maskname+'.'+filtername+'.'+objstar[index[sub]]+'.1d.fits'
 ;      p=readfits('1d_extracted/'+starfile,exten_no=5,/silent)
       
-      if sxpar(shdr,'SLIT') eq 1 then begin 
+      if sxpar(shdr,'SLIT') eq 1 and y_expect_shift ne 0.0 then begin 
         yexpect=yexpect-4 ; account for the bottom slit.
         endif
 
@@ -519,7 +521,7 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
 
     yexpect=float(yexpect)
     if yexpect ne -1 then begin
-    
+      yexpect=float(round(yexpect+y_expect_shift)) ; correct for shifted extracted spectra.
       bmep_mosdef_blind_extract,yexpect,width,ny,sciimg,var_img, $
         $ ;OUTPUTS
         f,ferr,fopt,fopterr,p
