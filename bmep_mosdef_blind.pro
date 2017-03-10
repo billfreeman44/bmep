@@ -345,7 +345,7 @@ pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_out
       print,maskname,' ', filtername,' ', slitname,' ',1, yexpect, midpoint, yshift,min_width, width
             if min_width-0.001 gt width then stop
       
-    endif else print,'no object found in the star file?!?!?!?'
+    endif else message,'No matching stars found in the 00_starinfo.txt file or error finding that file. '+maskname+' '+filtername
 
        extrainfo1=[$
         'CRVAL1',$

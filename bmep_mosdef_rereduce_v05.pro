@@ -95,12 +95,13 @@ end
 
 
 ;create a comparison document for bmep spectra
-pro bmep_rereduce_compare
+pro bmep_rereduce_compare,tblpath=tblpath
 
+  if ~keyword_set(tblpath) then tblpath='~/mosdef/Measurements/mosdef_0d_latest.fits'
   savepath='/Users/bill/mosdef/00_rereduce_1D/'
   cd,savepath
   filenames = file_search('*.1d.fits')
-  tbl=mrdfits('~/mosdef/Measurements/mosdef_0d_latest.fits',1,/silent)
+  tbl=mrdfits(tblpath,1,/silent)
   currentmask=sss(bmep_slinm_from_filename_1d(filenames[0],/mask))
   warr1=[]
   warr2=[]
@@ -110,6 +111,7 @@ pro bmep_rereduce_compare
   ypos2=[]
   maskarr=[]
   apnoarr=[]
+  fnfinal=[]
   rereduced_folder_name='000_rereduced'
   rereduced_folder_name=rereduced_folder_name+'/'
 
@@ -145,6 +147,7 @@ pro bmep_rereduce_compare
       ypos2=[ypos2,sxpar(hdr,'YPOS')]
       maskarr=[maskarr,currentmask]
       apnoarr=[apnoarr,bmep_slinm_from_filename_1d(filenames[i],/apno)]
+      fnfinal=[fnfinal,filenames[i]]
 ;      cgplot,wavel2,data2,/overplot,color='red'
     z=bmep_getz_filename(tbl,filenames[i])
     if z gt 0 then begin
@@ -200,7 +203,10 @@ ind=where(apnoarr eq 1)
     psym=6,xtitle='yexpect - ypos original',ytitle='yexpect - ypos new'
   cghistoplot,yex2[ind]-ypos2[ind],xtitle='yexpect - ypos new'
   cghistoplot,yex1[ind]-ypos1[ind],xtitle='yexpect - ypos original'
-
+  
+inds=bsort(yex2[ind]-ypos2[ind])
+;forprint,yex2[ind[inds]]-ypos2[ind[inds]],' '+fnfinal[ind[inds]]
+;print,n_elements(yex2),n_elements(filenames)
 cgps_close
 
 mre=rem_dup(maskarr)
@@ -220,6 +226,41 @@ cgps_close
 
 
 end
+
+
+
+
+
+pro bmep_rereduce_fitgauss,ypos,mwidth,newydata,newydataerr,status,chisq,coeff,gauss_sigma,upper,lower,yfit,mom1,mom2,dummy
+        
+lower=round(ypos-mwidth)
+if lower lt 0 then lower = 0
+if lower ge n_elements(newydata) then lower = n_elements(newydata)-1
+upper=round(ypos+mwidth)
+if upper ge n_elements(newydata) then upper = n_elements(newydata)-1
+if upper lt 0 then upper = 0
+if upper ne lower then begin
+  yfit=newydata[lower:upper]
+  yfiterr=sqrt(newydataerr[lower:upper])
+  nterms=4
+  pi =[{fixed:0, limited:[1,1], limits:[0.D,max(yfit)*1.2]},$ ;peak value
+    {fixed:0, limited:[1,1], limits:[-3.D,n_elements(newydata)+2]},$ ;peak centroid
+    {fixed:0, limited:[0,0], limits:[0.D,0.D]},$ ;sigma
+    {fixed:1, limited:[0,0], limits:[0.D,0.D]}];,$ ;linear bkgnd term
+  estimates=[ max(yfit),ypos,2.0,0.0]
+  xfit=findgen(upper-lower+1)+lower
+  dummy=MPFITPEAK(double(xfit),double(yfit),$
+    coeff,nterms=nterms,error=yfiterr,sigma=gauss_sigma,/gaussian,$
+    estimates=estimates,parinfo=pi,status=status,chisq=chisq, ERRMSG=errmsg)
+  mom1=total(xfit*yfit)/total(yfit)
+  mom2=2.355*sqrt(abs(total(xfit*xfit*yfit)/total(yfit) - $
+    (total(xfit*yfit)/total(yfit))*(total(xfit*yfit)/total(yfit))))
+  chisq=chisq/float(n_elements(yfit)-1.0)
+  endif else begin
+    status=0
+    endelse       
+end
+
 
 
 
@@ -373,8 +414,8 @@ end
 
 
 
-
-pro bmep_mosdef_rereduce_v05
+;compile bmep first.
+pro bmep_mosdef_rereduce_v05,twodfolder=twodfolder,onedfolder=onedfolder,tblpath=tblpath
 ;stop
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
@@ -388,12 +429,12 @@ pro bmep_mosdef_rereduce_v05
   ;create list of 1d spec
 ;  path_to_output=getenv('BMEP_MOSDEF_2D')
 ;  if path_to_output eq '' then message,'run in terminal window pls'
-  path_to_output='/Users/bill/mosdef/00_rereduce_2D/'
+  if ~keyword_set(twodfolder) then path_to_output='/Users/bill/mosdef/00_rereduce_2D/' else path_to_output=twodfolder
   
   ;get where to save output of extraction program
 ;  savepath=getenv('BMEP_MOSDEF_1D')
 ;  cd,savepath,current=original_dir
-  savepath='/Users/bill/mosdef/00_rereduce_1D/'
+  if ~keyword_set(twodfolder) then savepath='/Users/bill/mosdef/00_rereduce_1D/' else savepath=onedfolder
   cd,savepath
   ;read in list of 1d spectra
 ;  filenames = file_search('co3_01*.1d.fits');for updating only one
@@ -406,8 +447,7 @@ pro bmep_mosdef_rereduce_v05
    if ~bmep_dir_exist(rereduced_folder_name) then file_mkdir,rereduced_folder_name
    rereduced_folder_name=rereduced_folder_name+'/'
   
-  ;read in redshift data
-;  readcol,path_to_output+'/allslits.seplines.zmosfire.qflag.txt',zmask,zslit,zobject,zredshift,format='X,A,I,I,F,X,X,X,X',/SILENT
+  
   
   
   ;open file to write info
@@ -518,33 +558,11 @@ pro bmep_mosdef_rereduce_v05
 ;        cgerrplot,findgen(n_elements(newydata)),newydata-sqrt(newydataerr),newydata+sqrt(newydataerr)
         cgplot,[ypos_old,ypos_old],[min(newydata),max(newydata)],/overplot,color='black',thick=5
         cgplot,[ypos,ypos],[min(newydata),max(newydata)],/overplot,color='red',thick=5
-;        goto,endofloop
-;                stop
+       
+
         ;fit new gaussian
-        xpos=ypos
-        
-        lower=round(xpos-mwidth)
-        if lower lt 0 then lower = 0
-        if lower ge n_elements(newydata) then lower = n_elements(newydata)-1
-        upper=round(xpos+mwidth)
-        if upper ge n_elements(newydata) then upper = n_elements(newydata)-1
-        if upper lt 0 then upper = 0
-        if upper ne lower then begin
-          yfit=newydata[lower:upper]
-          yfiterr=sqrt(newydataerr[lower:upper])
-          nterms=4
-          
-          pi =[{fixed:0, limited:[1,1], limits:[0.D,max(yfit)*1.2]},$ ;peak value
-            {fixed:0, limited:[1,1], limits:[-3.D,n_elements(newydata)+2]},$ ;peak centroid
-            {fixed:0, limited:[0,0], limits:[0.D,0.D]},$ ;sigma
-            {fixed:1, limited:[0,0], limits:[0.D,0.D]}];,$ ;linear bkgnd term
-          estimates=[ max(yfit),xpos,2.0,0.0]
-          xfit=findgen(upper-lower+1)+lower
-          dummy=MPFITPEAK(double(xfit),double(yfit),$
-            coeff,nterms=nterms,error=yfiterr,sigma=gauss_sigma,/gaussian,$
-            estimates=estimates,parinfo=pi,status=status,chisq=chisq, ERRMSG=errmsg)
-            
-            
+        bmep_rereduce_fitgauss,ypos,mwidth,newydata,newydataerr,status,chisq,coeff,gauss_sigma,upper,lower,yfit,mom1,mom2,dummy
+
           if status eq 1 or status eq 3 then begin
             fwhm_fit=2.0*SQRT(2.0*ALOG(2.0))*coeff[2]
             if coeff[1] gt -3 and coeff[1] lt n_elements(newydata)+3 then begin
@@ -552,12 +570,11 @@ pro bmep_mosdef_rereduce_v05
               
               if minw ne -1 and fwhm_fit lt minw then fwhm_fit=minw
               
-              mom1=total(xfit*yfit)/total(yfit)
-              mom2=2.355*sqrt(abs(total(xfit*xfit*yfit)/total(yfit) - $
-                (total(xfit*yfit)/total(yfit))*(total(xfit*yfit)/total(yfit))))
-              chisq=chisq/float(n_elements(yfit)-1.0)
+
               newcenter=coeff[1]
               newwidth=fwhm_fit
+              if sxpar(hdr,'WBYHAND') eq 1 then newwidth = float(width)
+              
               printf,lun,'Width: ',width,newwidth,width-newwidth
               printf,lun,'Center: ',ypos,newcenter,ypos-newcenter
               if newwidth ne width or newcenter ne ypos then begin
@@ -570,8 +587,6 @@ pro bmep_mosdef_rereduce_v05
               cgplot,findgen(upper-lower+1)+lower,yfit,color='green',/overplot
               cgplot,findgen(upper-lower)+lower,dummy,color='purple',/overplot
               cgplot,[coeff[1],coeff[1]],minmax(yfit),color='purple',/overplot
-              
-              if sxpar(hdr,'WBYHAND') eq 1 then newwidth = float(width)
               
               
               if abs(newwidth - width) le 1 and abs(newcenter - ypos) le 3 then begin
@@ -588,7 +603,7 @@ pro bmep_mosdef_rereduce_v05
 ;                cgplot,p,color='blue',/overplot
                 
                 
-              ;save the damn files...
+              ;save the files...
               bmep_mosdef_rereduce_save,hdr,D2hdr,hdr0,$
                 newwidth,minw,ypos,newcenter,mom1,mom2,chisq,coeff,gauss_sigma,$
                 i,filenames,fopt,fopterr,f,ferr,newydata,newydataerr,rereduced_folder_name    
@@ -596,16 +611,10 @@ pro bmep_mosdef_rereduce_v05
          
   
                 ENDIF;ISSTAR
-                
-                
               endif else begin ;new width and center OK
                 printf,lun,'Bad new width or center. Too different'
                 printf,lun3,filenames[i],'Bad new width or center. Too different';,newwidth,width,newcenter,ypos
               endelse
-            endif else begin;coeff makes sense
-              printf,lun,'Bad gaussian fit. (coeff out of good range.)'
-              printf,lun3,filenames[i],lun,'Bad gaussian fit. (coeff out of good range.)'
-            endelse
           endif else begin;fit status eq 1
             printf,lun,'Bad gaussian fit. (status ne 1)'
             printf,lun3,filenames[i],'Bad gaussian fit. (status ne 1)'
@@ -641,6 +650,8 @@ pro bmep_mosdef_rereduce_v05
 cd,rereduced_folder_name
 slitlist=[]
 masklist=[]
+yposarr=[]
+yexarr=[]
 re_filenames=file_search('*.1d.fits')
 for i=0,n_elements(filenames)-1 do begin
 ;for i=0,100 do begin
@@ -648,8 +659,12 @@ for i=0,n_elements(filenames)-1 do begin
     index=where(re_filenames eq filenames[i],ct)
     if ct eq 0 then begin
 ;      print,filenames[i],' is undone'
+;      temp=readfits(filenames[i],hdr0,exten_no=0,/silent)
+      data=readfits(filenames[i],hdr,exten_no=1,/silent)
       masklist=[masklist,bmep_slinm_from_filename_1d(filenames[i],/mask)]
       slitlist=[slitlist,bmep_slinm_from_filename_1d(filenames[i])]
+      yposarr=[]
+      yexarr=[]
       endif
     endif
   endfor
@@ -660,8 +675,9 @@ for i=0,n_elements(filenames)-1 do begin
   forprint,masklist[x[index[y]]],slitlist[x[index[y]]]
   forprint,masklist[x[index[y]]],' '+slitlist[x[index[y]]],textout='00_undone_slits.txt'
   
-  
-  bmep_rereduce_compare
+
+cd,rereduced_folder_name
+  bmep_rereduce_compare,tblpath=tblpath
   
   print,'there are ',file_lines(rereduced_folder_name+'00_undone_info.txt')-3,' undone'
   print,'out of ',n_elements(filenames),' files
