@@ -1605,7 +1605,7 @@ function bmep_guess_redshift,state,wavel,fopt,fopterr,objnum,linename=linename,l
       forprint,maskname+' ',filtername+' ',slitname+' ',sss(abs(objnum))+' ',redshift,redshifterr,' '+new_name,new_wavel,coeff[1],$
       textout=state.savepath+'00_redshift_catalog_bmep.txt',$
       comment="# maskname filter slit ap_no z zerr linename restwave obswave", $
-      format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)' $
+      format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)', width=200 $
       else begin
         readcol,state.savepath+'00_redshift_catalog_bmep.txt',v1,v2,v3,v4,v5,v6,v7,v8,v9,format='A,A,A,A,F,F,A,F,F',/silent
         
@@ -1621,12 +1621,12 @@ function bmep_guess_redshift,state,wavel,fopt,fopterr,objnum,linename=linename,l
   
         forprint,v1,v2,v3,v4,v5,v6,v7,v8,v9,$
           textout=state.savepath+'00_redshift_catalog_bmep.txt',comment="# maskname filter slit ap_no z zerr linename restwave obswave",$
-          format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
+          format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)',width=200
         index=where(sss(v1) eq sss(maskname) and sss(v3) eq sss(slitname),ct)
         if ct ge 1 then begin
           print,"      maskname   filter   slit  ap_no   z     zerr    linename    restwave    obswave"
           forprint,v1[index],v2[index],v3[index],v4[index],v5[index],v6[index],v7[index],v8[index],v9[index],$
-            format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'  
+            format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)', width=200  
           endif
         endelse
       endif;status eq 1
@@ -2230,7 +2230,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
                   sigmastar=[sigmastar,thesigmastar]
                 endelse ; ct
                 forprint,textout=state.savepath+'00_starinfo.txt',maskstar+' ',$
-                  filtstar+' ',objstar+' ',yexpect_star,yactual_star,widthstar,sigmastar,/nocomment
+                  filtstar+' ',objstar+' ',yexpect_star,yactual_star,widthstar,sigmastar,/nocomment,width=200
                 print,'UPDATED 00_STARINFO.TXT
                   
                   
@@ -2331,7 +2331,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
           if ct ge 1 then begin
             print,"      maskname   filter   slit  ap_no   z     zerr    linename    restwave    obswave"
             forprint,v1[index],v2[index],v3[index],v4[index],v5[index],v6[index],v7[index],v8[index],v9[index],$
-              format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
+              format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)',width=200
             endif;ct
           endif ;file found
         endif ; key is b
@@ -3002,7 +3002,7 @@ if key eq 'X' then begin
         forprint,maskname+' ',filtername+' ',slitname+' ',sss(abs(objnum))+' ',redshift,redshifterr,' '+new_name,new_wavel,coeff[1],$
         textout=state.savepath+'00_redshift_catalog_bmep.txt',$
         comment="# maskname filter slit ap_no z zerr linename restwave obswave", $
-        format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)' $
+        format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)',width=200 $
       else begin
       readcol,state.savepath+'00_redshift_catalog_bmep.txt',v1,v2,v3,v4,v5,v6,v7,v8,v9,format='A,A,A,A,F,F,A,F,F'
       
@@ -3063,12 +3063,12 @@ if key eq 'X' then begin
       
       forprint,v1,v2,v3,v4,v5,v6,v7,v8,v9,$
         textout=state.savepath+'00_redshift_catalog_bmep.txt',comment="# maskname filter slit ap_no z zerr linename restwave obswave",$
-        format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
+        format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)',width=200
       index=where(sss(v1) eq sss(maskname) and sss(v3) eq sss(slitname),ct)
       if ct ge 1 then begin
         print,"      maskname   filter   slit  ap_no   z     zerr    linename    restwave    obswave"
         forprint,v1[index],v2[index],v3[index],v4[index],v5[index],v6[index],v7[index],v8[index],v9[index],$
-          format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)'
+          format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)', width=200
         endif else print,'WARNING, BUG WITH FINDING SIMILAR OBJECTS IN REDSHIFT LIST. pls msg bill'
     endelse ; file found
   endif;choice
@@ -4338,7 +4338,7 @@ pro bmep_mosdef_v01,path_to_output=path_to_output,monitorfix=monitorfix
   ;create a 00_starinfo.txt if not exist
   if ~file_test(savepath+'00_starinfo.txt') then begin
     forprint,textout=savepath+'00_starinfo.txt',['maskname '],$
-      ['filtername '],['objname '],[99.99],[99.99],[99.99],[99.99],/nocomment
+      ['filtername '],['objname '],[99.99],[99.99],[99.99],[99.99],/nocomment, width=200
   endif
   
   
@@ -4654,7 +4654,7 @@ pro bmep_mosdef,path_to_output=path_to_output,monitorfix=monitorfix,twothick=two
   ;create a 00_starinfo.txt if not exist
   if ~file_test(savepath+'00_starinfo.txt') then begin
     forprint,textout=savepath+'00_starinfo.txt',['maskname '],$
-      ['filtername '],['objname '],[99.99],[99.99],[99.99],[99.99],/nocomment
+      ['filtername '],['objname '],[99.99],[99.99],[99.99],[99.99],/nocomment, width=200
   endif
   
   
@@ -5807,7 +5807,7 @@ pro bmep,path_to_output=path_to_output,botpercent=botpercent,toppercent=topperce
   ;create a 00_starinfo.txt if not exist
   if ~file_test(savepath+'00_starinfo.txt') then begin
     forprint,textout=savepath+'00_starinfo.txt',['maskname '],$
-      ['filtername '],['objname '],[99.99],[99.99],[99.99],[99.99],/nocomment
+      ['filtername '],['objname '],[99.99],[99.99],[99.99],[99.99],/nocomment, width=200
   endif  
   
   ;find folders of masks..
