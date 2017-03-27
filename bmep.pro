@@ -2331,7 +2331,7 @@ FUNCTION bmep_KeyboardHandler, oWin, $
           if ct ge 1 then begin
             print,"      maskname   filter   slit  ap_no   z     zerr    linename    restwave    obswave"
             forprint,v1[index],v2[index],v3[index],v4[index],v5[index],v6[index],v7[index],v8[index],v9[index],$
-              format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)', width=200
+              format='(A20,A4,A14,A4,F10.6,F13.8,A12,F11.3,F11.3)',width=200
             endif;ct
           endif ;file found
         endif ; key is b
