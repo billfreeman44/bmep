@@ -90,8 +90,38 @@ index=where(tbl.maskname eq bmep_slinm_from_filename_1d(filename,/mask) $
 return,-1.0
 end
 
+;;;check which files are different between the old 1d and new 1d folders.
+pro bmep_rereduce_sanity_check,twodfolder=twodfolder,onedfolder=onedfolder,tblpath=tblpath
+  if ~keyword_set(twodfolder) then path_to_output='/Users/bill/mosdef/00_rereduce_2D/' else path_to_output=twodfolder
+  if ~keyword_set(twodfolder) then savepath='/Users/bill/mosdef/00_rereduce_1D/' else savepath=onedfolder
+  rereduced_folder_name='000_rereduced'
+  
+  cd,savepath
+  filenames = file_search('*.S*.1d.fits')
+  FORPRINT,filenames
+  
+  filenames = file_search('*.1d.fits')
+  print,'list contains ',n_elements(filenames),' objects
+  
+  
+  
+  cd,rereduced_folder_name
+  re_filenames=file_search('*.1d.fits')
 
+  for i=0,n_elements(filenames)-1 do begin
+    index=where(re_filenames eq filenames[i],ct)
+    if ct eq 0 then begin
+      substrings=strsplit(filenames[i],'.',/extract)
+      print,substrings[0]+'-'+substrings[2]+'-'+substrings[3]
+      endif
+    endfor
 
+;  for i=0,n_elements(re_filenames)-1 do begin
+;    index=where(filenames eq re_filenames[i],ct)
+;    if ct eq 0 then print,re_filenames[i]+' was not found in the old folder'
+;    endfor
+
+end
 
 
 ;create a comparison document for bmep spectra
@@ -261,12 +291,54 @@ if upper ne lower then begin
     endelse       
 end
 
+function get_primary_yexpect,filename,D2hdr,ny,savepath
+
+  substrings=strsplit(filename,'.',/extract)
+  maskname=substrings[0]
+  filtername=substrings[1]
+
+;calculate where object SHOULD be!
+;note 'shdr' was the science header read in earlier.
+yexpect=-1
+isstar=-1
+minwidth=-1
+yshift=0.0
+  pixscale=0.1799
+  midpoint=ny/2.0
+  yexpect=midpoint+sxpar(D2hdr,'OFFSET')/pixscale
+  ;check if object is a star, If it isn't shift by amount that star is offset by
+  if abs(sxpar(D2hdr,'PRIORITY')) eq 1 then isstar=1 else begin
+    isstar=0
+    readcol,savepath+'00_starinfo.txt',maskstar,$
+      filtstar,objstar,yexpect_star,yactual_star,widthstar,sigmastar,/silent,format='A,A,A,F,F,F,F'
+    index=where(maskstar eq maskname and filtstar eq filtername,ct)
+    if ct ne 0 then begin
+      ;print,ct,' number of stars found for ',maskname,' ',filtername
+      yshift=avg(yexpect_star[index] - yactual_star[index])
+      minwidth=min(widthstar[index])
+    endif else for ii=0,13 do print,'WARNING, DO THE STARS BEFORE DOING ANY OBJECTS'
+  endelse ;if isstar
+  if sxpar(D2hdr,'SLIT') eq 1 then begin 
+    ;print,'this object is at the bottom slit. accounting for this by shifting yexpect by -4'
+    yexpect=yexpect-4 ; account for the bottom slit.
+    endif
+  ;print,'slitname, yexpect, midpoint, yshift, minwidth'
+  ;print, yexpect, midpoint, yshift, minwidth
+  yexpect=yexpect-yshift
+  ;PRINT,'new yexpect:',yexpect
+
+
+
+return,yexpect
+
+end
 
 
 
 pro bmep_mosdef_rereduce_save,hdr,D2hdr,hdr0,$
   newwidth,minw,ypos,newcenter,mom1,mom2,chisq,coeff,gauss_sigma,$
-  i,filenames,fopt,fopterr,f,ferr,newydata,newydataerr,rereduced_folder_name
+  i,filenames,fopt,fopterr,f,ferr,newydata,newydataerr,rereduced_folder_name,$
+  ny,savepath
 
 extrainfo1=[$
   'CRVAL1',$
@@ -356,6 +428,7 @@ extrainfo1=[$
   
  
 sxaddpar,hdr,'COMMENT',' Exten 6: Light profile error bars' 
+sxaddpar,hdr0,'COMMENT',' Exten 6: Light profile error bars' 
 for k=0,n_elements(extrainfo1)-1 do begin 
   sxaddpar,hdr,extrainfo1[k],sxpar(D2hdr,extrainfo1[k],COUNT=COUNT),extrainfo3[k]
   if count ne 1 then print,count,extrainfo1[k]
@@ -363,7 +436,13 @@ for k=0,n_elements(extrainfo1)-1 do begin
 sxaddpar,hdr,'TARGNAME',sxpar(hdr,'TARGNAME')
 sxaddpar,hdr,'WIDTH',newwidth,/savecomment
 sxaddpar,hdr,'MINW',minw,/savecomment
-sxaddpar,hdr,'YEXPECT',ypos,/savecomment
+
+;;get_primary_yexpect,filename,D2hdr,ny,savepath
+if bmep_slinm_from_filename_1d(filenames[i],/apno) eq 1 then $
+  sxaddpar,hdr,'YEXPECT',ypos,/savecomment $
+  else sxaddpar,hdr,'YEXPECT',GET_PRIMARY_YEXPECT(filenames[i],D2hdr,ny,savepath),/savecomment
+
+
 sxaddpar,hdr,'YPOS',newcenter,/savecomment
 sxaddpar,hdr,'MOM1',mom1,/savecomment
 sxaddpar,hdr,'MOM2',mom2,/savecomment
@@ -518,6 +597,9 @@ pro bmep_mosdef_rereduce_v05,twodfolder=twodfolder,onedfolder=onedfolder,tblpath
         bmep_clean_imgs,sciimg,noise_img
         var_img=noise_img*noise_img
         
+        ny=n_elements(sciimg[0,*])
+        nx=n_elements(sciimg[*,0])
+        
         ;calculate new y data
         bmep_calc_new_yprofile,hdr,D2hdr,lun,sciimg,var_img,newydata,newydataerr
         
@@ -558,7 +640,9 @@ pro bmep_mosdef_rereduce_v05,twodfolder=twodfolder,onedfolder=onedfolder,tblpath
 ;        cgerrplot,findgen(n_elements(newydata)),newydata-sqrt(newydataerr),newydata+sqrt(newydataerr)
         cgplot,[ypos_old,ypos_old],[min(newydata),max(newydata)],/overplot,color='black',thick=5
         cgplot,[ypos,ypos],[min(newydata),max(newydata)],/overplot,color='red',thick=5
-       
+        
+        
+        
 
         ;fit new gaussian
         bmep_rereduce_fitgauss,ypos,mwidth,newydata,newydataerr,status,chisq,coeff,gauss_sigma,upper,lower,yfit,mom1,mom2,dummy
@@ -606,7 +690,8 @@ pro bmep_mosdef_rereduce_v05,twodfolder=twodfolder,onedfolder=onedfolder,tblpath
               ;save the files...
               bmep_mosdef_rereduce_save,hdr,D2hdr,hdr0,$
                 newwidth,minw,ypos,newcenter,mom1,mom2,chisq,coeff,gauss_sigma,$
-                i,filenames,fopt,fopterr,f,ferr,newydata,newydataerr,rereduced_folder_name    
+                i,filenames,fopt,fopterr,f,ferr,newydata,newydataerr,rereduced_folder_name,$
+                ny,savepath
               
          
   
@@ -675,8 +760,12 @@ for i=0,n_elements(filenames)-1 do begin
   forprint,masklist[x[index[y]]],slitlist[x[index[y]]]
   forprint,masklist[x[index[y]]],' '+slitlist[x[index[y]]],textout='00_undone_slits.txt'
   
+  for i=0,n_elements(slitlist[x[index[y]]])-1 do begin
+    spawn,'rm '+masklist[x[index[y[i]]]]+'*'+slitlist[x[index[y[i]]]]+'*.fits'
+    print,'rm '+masklist[x[index[y[i]]]]+'*'+slitlist[x[index[y[i]]]]+'*.fits'
+    endfor
 
-cd,rereduced_folder_name
+;cd,rereduced_folder_name
   bmep_rereduce_compare,tblpath=tblpath
   
   print,'there are ',file_lines(rereduced_folder_name+'00_undone_info.txt')-3,' undone'

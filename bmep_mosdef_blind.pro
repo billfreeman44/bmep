@@ -49,11 +49,10 @@ function bmep_blind_hdr,f,extrainfo1,extrainfo2,extrainfo3,yexpect,width,$
   sxaddpar, Header, 'COMMENT',' Exten 2: Optimal extraction error bars'
   sxaddpar, Header, 'COMMENT',' Exten 3: Boxcar extraction'
   sxaddpar, Header, 'COMMENT',' Exten 4: Boxcar extraction error bars'
-  sxaddpar, Header, 'COMMENT',' Exten 5: P'
-  sxaddpar, Header, 'COMMENT',' Exten 6: P error bars'
+  sxaddpar, Header, 'COMMENT',' Exten 5: Light profile'
+  sxaddpar, Header, 'COMMENT',' Exten 6: Light profile error bars'
   sxaddpar, Header, 'COMMENT',' This is the blind extraction'
   
-
   
   return, header
   
@@ -197,7 +196,7 @@ end
 
 
 
-pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output
+pro bmep_mosdef_blind,path_to_dropbox=path_to_dropbox,path_to_output=path_to_output,rereduce=rereduce
   FORWARD_FUNCTION bmep_blind_hdr, bmep_dir_exist, bmep_fit_sky,bmep_find_p_slide, $
     bmep_find_p, bmep_get_slitname, bmep_make_hdr,bmep_sigma_clip, bmep_percent_cut
   starttime=systime(/seconds)
