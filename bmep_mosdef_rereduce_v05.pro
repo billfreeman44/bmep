@@ -125,10 +125,10 @@ end
 
 
 ;create a comparison document for bmep spectra
-pro bmep_rereduce_compare,tblpath=tblpath
+pro bmep_rereduce_compare,tblpath=tblpath,twodfolder=twodfolder,onedfolder=onedfolder
 
   if ~keyword_set(tblpath) then tblpath='~/mosdef/Measurements/mosdef_0d_latest.fits'
-  savepath='/Users/bill/mosdef/00_rereduce_1D/'
+  if ~keyword_set(onedfolder) then savepath='/Users/bill/mosdef/00_rereduce_1D/' else savepath=onedfolder
   cd,savepath
   filenames = file_search('*.1d.fits')
   tbl=mrdfits(tblpath,1,/silent)
@@ -766,7 +766,7 @@ for i=0,n_elements(filenames)-1 do begin
     endfor
 
 ;cd,rereduced_folder_name
-  bmep_rereduce_compare,tblpath=tblpath
+  bmep_rereduce_compare,tblpath=tblpath,twodfolder=twodfolder,onedfolder=onedfolder
   
   print,'there are ',file_lines(rereduced_folder_name+'00_undone_info.txt')-3,' undone'
   print,'out of ',n_elements(filenames),' files
