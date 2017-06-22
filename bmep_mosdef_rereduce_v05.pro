@@ -86,15 +86,15 @@ function bmep_getz_filename,tbl,filename
 index=where(sss(tbl.maskname) eq sss(bmep_slinm_from_filename_1d(filename,/mask)) $
   and ssi(tbl.slitobjname) eq ssi(bmep_slinm_from_filename_1d(filename)) $
   and ssi(tbl.APERTURE_NO) eq ssi(bmep_slinm_from_filename_1d(filename,/apno)),ct)
-  print,'ct',ct
-index=where(tbl.maskname eq bmep_slinm_from_filename_1d(filename,/mask),ct2)
-print,'ct',ct
-  print,bmep_slinm_from_filename_1d(filename,/mask)
-  print,bmep_slinm_from_filename_1d(filename),ssi(bmep_slinm_from_filename_1d(filename))
-  print,bmep_slinm_from_filename_1d(filename,/apno),ssi(bmep_slinm_from_filename_1d(filename,/apno))
-  
-  print
-  print
+;  print,'ct',ct
+;index=where(tbl.maskname eq bmep_slinm_from_filename_1d(filename,/mask),ct2)
+;print,'ct',ct
+;  print,bmep_slinm_from_filename_1d(filename,/mask)
+;  print,bmep_slinm_from_filename_1d(filename),ssi(bmep_slinm_from_filename_1d(filename))
+;  print,bmep_slinm_from_filename_1d(filename,/apno),ssi(bmep_slinm_from_filename_1d(filename,/apno))
+;  
+;  print
+;  print
   if ct eq 1 then return,tbl[index].z_mosfire
 return,-1.0
 end
