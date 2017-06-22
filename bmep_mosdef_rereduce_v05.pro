@@ -84,7 +84,7 @@ function bmep_getz_filename,tbl,filename
 ;SLITOBJNAME
 ;zmosfire
 index=where(tbl.maskname eq bmep_slinm_from_filename_1d(filename,/mask) $
-  and tbl.slitobjname eq bmep_slinm_from_filename_1d(filename) $
+  and ssi(tbl.slitobjname) eq ssi(bmep_slinm_from_filename_1d(filename)) $
   and ssi(tbl.APERTURE_NO) eq ssi(bmep_slinm_from_filename_1d(filename,/apno)),ct)
   if ct eq 1 then return,tbl[index].z_mosfire
 return,-1.0
@@ -180,7 +180,7 @@ pro bmep_rereduce_compare,tblpath=tblpath,twodfolder=twodfolder,onedfolder=onedf
       fnfinal=[fnfinal,filenames[i]]
 ;      cgplot,wavel2,data2,/overplot,color='red'
     z=bmep_getz_filename(tbl,filenames[i])
-    print,'REDSHIFT IS ',z
+    ;print,'REDSHIFT IS ',z
     if z gt 0 then begin
       wavel=wavel/(1.0+z)
       wavel2=wavel2/(1.0+z)
@@ -193,7 +193,7 @@ pro bmep_rereduce_compare,tblpath=tblpath,twodfolder=twodfolder,onedfolder=onedf
         woffset=0.1
         index=where(wavel gt linewavels[j]-10 and wavel lt linewavels[j]+10,ct)
         index2=where(wavel2 gt linewavels[j]-10 and wavel2 lt linewavels[j]+10,ct)
-        print,'ct is',ct
+        ;print,'ct is',ct
         if ct gt 5 then begin
           cgplot,wavel[index],data[index],xr=[linewavels[j]-10,linewavels[j]+10],title=filenames[i] + ' '+linenames[j],psym=-6
           cgplot,wavel2[index2],data2[index2],/overplot,color='red',psym=-6
