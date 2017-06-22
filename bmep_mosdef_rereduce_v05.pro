@@ -131,7 +131,7 @@ pro bmep_rereduce_compare,tblpath=tblpath,twodfolder=twodfolder,onedfolder=onedf
   if ~keyword_set(onedfolder) then savepath='/Users/bill/mosdef/00_rereduce_1D/' else savepath=onedfolder
   cd,savepath
   filenames = file_search('*.1d.fits')
-  tbl=mrdfits(tblpath,1,/silent)
+  tbl=mrdfits(tblpath,1)
   currentmask=sss(bmep_slinm_from_filename_1d(filenames[0],/mask))
   warr1=[]
   warr2=[]
@@ -180,6 +180,7 @@ pro bmep_rereduce_compare,tblpath=tblpath,twodfolder=twodfolder,onedfolder=onedf
       fnfinal=[fnfinal,filenames[i]]
 ;      cgplot,wavel2,data2,/overplot,color='red'
     z=bmep_getz_filename(tbl,filenames[i])
+    print,'REDSHIFT IS ',z
     if z gt 0 then begin
       wavel=wavel/(1.0+z)
       wavel2=wavel2/(1.0+z)
@@ -192,6 +193,7 @@ pro bmep_rereduce_compare,tblpath=tblpath,twodfolder=twodfolder,onedfolder=onedf
         woffset=0.1
         index=where(wavel gt linewavels[j]-10 and wavel lt linewavels[j]+10,ct)
         index2=where(wavel2 gt linewavels[j]-10 and wavel2 lt linewavels[j]+10,ct)
+        print,'ct is',ct
         if ct gt 5 then begin
           cgplot,wavel[index],data[index],xr=[linewavels[j]-10,linewavels[j]+10],title=filenames[i] + ' '+linenames[j],psym=-6
           cgplot,wavel2[index2],data2[index2],/overplot,color='red',psym=-6
